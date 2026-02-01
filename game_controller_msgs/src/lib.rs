@@ -20,7 +20,7 @@ pub const MONITOR_REQUEST_SIZE: usize = 5;
 /// The binary size of a status message.
 pub const STATUS_MESSAGE_SIZE: usize = GAMECONTROLLER_RETURN_STRUCT_SIZE;
 /// The maximal binary size of a team message.
-pub const TEAM_MESSAGE_MAX_SIZE: usize = 128;
+pub const TEAM_MESSAGE_MAX_SIZE: usize = 512;
 
 /// The UDP port on which control messages are sent.
 pub const CONTROL_MESSAGE_PORT: u16 = GAMECONTROLLER_DATA_PORT;

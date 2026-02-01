@@ -74,7 +74,7 @@ The GameController communicates with robot players via three channels:
     After these events, they continue to maintain the state before the event for up to 15 seconds, or until another event happens that could not have happened in this "fake" state.
     Note that this behavior differs from the old GameController, which would always keep the state attribute (and some others) at the old value for 15 seconds, even when other attributes already clearly indicated that it was the new state (e.g. players are unpenalized although their timers aren't at zero yet, or set plays starting during the "fake" `set` state when it is actually already `playing`).
 - It receives status messages from the robot players which must send them at a rate between 0.5 hertz and 2 hertz (UDP unicast on port 3939, format specified in the struct `RoboCupGameControlReturnData` in `game_controller_msgs/headers/RoboCupGameControlData.h`).
-- It receives team messages from the robot players (UDP broadcast on port 10000 + team number, up to 128 bytes of payload with arbitrary format).
+- It receives team messages from the robot players (UDP broadcast on port 10000 + team number, up to 512 bytes of payload with arbitrary format).
 
 In addition, the GameController offers an interface for monitor applications (such as the TeamCommunicationMonitor or the EventRecorder):
 - It receives monitor requests (UDP unicast on port 3636, 4 bytes header magic `RGTr` + 1 byte version number `0`).

@@ -1,6 +1,6 @@
 # GameController
 
-This is the GameController software for robot soccer games in the RoboCup Standard Platform League.
+This is the GameController software for robot soccer games in the RoboCup Humanoid Soccer League.
 
 ## Compilation
 
@@ -57,7 +57,7 @@ It is recommended to run the script only on a clean working tree.
 ## Configuration
 
 Configuration files that are read at runtime are located in the directory `config`.
-The global `teams.yaml` is a list of all teams in the SPL, their names, and their available jersey colors both for field players and goalkeepers.
+The global `teams.yaml` is a list of all teams in the HSL, their names, and their available jersey colors both for field players and goalkeepers.
 Each (sub)competition has a subdirectory with two files:
 `params.yaml` corresponds to the Rust struct `game_controller_core::types::CompetitionParams` and sets (mostly numeric) constants for the competition.
 `teams.yaml` is a list of team numbers of the teams that participate in the competition.
@@ -93,7 +93,7 @@ The exceptions are that control messages can be configured to be sent to the lim
 
 ### Start
 
-The binary distributions on the [GitHub releases page](https://github.com/RoboCup-SPL/GameController3/releases) come with scripts that can be executed in a platform-typical way.
+The binary distributions on the [GitHub releases page](https://github.com/RoboCup-HumanoidSoccerLeague/GameController/releases) come with scripts that can be executed in a platform-typical way.
 On macOS, you may want to call `xattr -c <path to GameController.app>` before the first run to clear the quarantine flag.
 
 If the GameController should be run from the source code, the most convenient way to do it is by executing

@@ -1,6 +1,6 @@
 [package]
 authors = { workspace = true }
-description = "The GUI application of the RoboCup Standard Platform League GameController"
+description = "The GUI application of the RoboCup Humanoid Soccer League GameController"
 edition = { workspace = true }
 license = { workspace = true }
 name = "game_controller_app"

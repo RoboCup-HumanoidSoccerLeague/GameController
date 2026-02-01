@@ -37,7 +37,7 @@
       "signingIdentity": null
     },
     "resources": [],
-    "shortDescription": "The GameController for the RoboCup Standard Platform League",
+    "shortDescription": "The GameController for the RoboCup Humanoid Soccer League",
     "targets": "all",
     "windows": {
       "certificateThumbprint": null,
@@ -45,8 +45,8 @@
       "timestampUrl": ""
     }
   },
-  "identifier": "org.robocup.spl.game-controller",
+  "identifier": "org.robocup.hsl.game-controller",
   "mainBinaryName": "GameController",
   "productName": "GameController",
-  "version": "5.0.0"
+  "version": "6.0.0-dev"
 }

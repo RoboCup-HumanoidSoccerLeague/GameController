@@ -37,9 +37,9 @@ trait_enum = { version = "0.5" }
 authors = ["Arne Hasselbring <arha@uni-bremen.de>"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/RoboCup-SPL/GameController3"
+repository = "https://github.com/RoboCup-HumanoidSoccerLeague/GameController"
 rust-version = "1.82"
-version = "5.0.0"
+version = "6.0.0-dev"
 
 [profile.release-dist]
 inherits = "release"

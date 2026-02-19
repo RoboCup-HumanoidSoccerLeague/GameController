@@ -50,9 +50,6 @@ pub struct CompetitionParams {
     pub challenge_mode: Option<ChallengeMode>,
     /// The number of players per team that can play at the same time.
     pub players_per_team: u8,
-    /// The number of players per team that can play at the same time if the team plays in
-    /// fallback mode (if the competition has a fallback mode).
-    pub players_per_team_fallback_mode: Option<u8>,
     /// The parameters of each penalty type.
     pub penalties: EnumMap<Penalty, PenaltyParams>,
     /// The additional penalty duration for each previous incremental penalty of a team.
@@ -430,8 +427,6 @@ pub struct Team {
     pub message_budget: u16,
     /// Whether the team has sent illegal team messages.
     pub illegal_communication: bool,
-    /// Whether the team plays in fallback mode.
-    pub fallback_mode: bool,
     /// The current penalty shot index.
     pub penalty_shot: u8,
     /// The mask of all penalty shot by this team (bit i means that penalty shot i was successful).

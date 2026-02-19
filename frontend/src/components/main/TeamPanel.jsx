@@ -80,44 +80,24 @@ const TeamStats = ({ game, params, side, sign, team }) => {
 const FreeKickButtons = ({ game, legalTeamActions, side, sign }) => {
   return (
     <div className={`flex ${sign > 0 ? "flex-row" : "flex-row-reverse"} gap-2`}>
-      {game.state === "initial" || game.state === "standby" || game.state === "timeout" ? (
-        <>
-          <ActionButton
-            action={{
-              type: "penalize",
-              args: { side: side, player: null, call: "motionInStandby" },
-            }}
-            label="Motion in Standby"
-            legal={legalTeamActions[actions.MOTION_IN_STANDBY]}
-          />
-          <ActionButton
-            action={{ type: "switchTeamMode", args: { side: side } }}
-            label="Switch Mode"
-            legal={legalTeamActions[actions.SWITCH_TEAM_MODE]}
-          />
-        </>
-      ) : (
-        <>
-          <ActionButton
-            action={{ type: "startSetPlay", args: { side: side, setPlay: "goalKick" } }}
-            active={game.setPlay === "goalKick" && game.kickingSide === side}
-            label="Goal Kick"
-            legal={legalTeamActions[actions.GOAL_KICK]}
-          />
-          <ActionButton
-            action={{ type: "startSetPlay", args: { side: side, setPlay: "kickIn" } }}
-            active={game.setPlay === "kickIn" && game.kickingSide === side}
-            label="Kick-in"
-            legal={legalTeamActions[actions.KICK_IN]}
-          />
-          <ActionButton
-            action={{ type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }}
-            active={game.setPlay === "cornerKick" && game.kickingSide === side}
-            label="Corner Kick"
-            legal={legalTeamActions[actions.CORNER_KICK]}
-          />
-        </>
-      )}
+      <ActionButton
+        action={{ type: "startSetPlay", args: { side: side, setPlay: "goalKick" } }}
+        active={game.setPlay === "goalKick" && game.kickingSide === side}
+        label="Goal Kick"
+        legal={legalTeamActions[actions.GOAL_KICK]}
+      />
+      <ActionButton
+        action={{ type: "startSetPlay", args: { side: side, setPlay: "kickIn" } }}
+        active={game.setPlay === "kickIn" && game.kickingSide === side}
+        label="Kick-in"
+        legal={legalTeamActions[actions.KICK_IN]}
+      />
+      <ActionButton
+        action={{ type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }}
+        active={game.setPlay === "cornerKick" && game.kickingSide === side}
+        label="Corner Kick"
+        legal={legalTeamActions[actions.CORNER_KICK]}
+      />
     </div>
   );
 };

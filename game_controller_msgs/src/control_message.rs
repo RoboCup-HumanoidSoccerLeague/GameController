@@ -235,11 +235,7 @@ impl ControlMessage {
                     |goalkeeper| goalkeeper.into(),
                 ),
                 score: game.teams[side].score,
-                penalty_shot: if game.phase == Phase::PenaltyShootout {
-                    game.teams[side].penalty_shot
-                } else {
-                    game.teams[side].fallback_mode as u8
-                },
+                penalty_shot: game.teams[side].penalty_shot,
                 single_shots: game.teams[side].penalty_shot_mask,
                 message_budget: game.teams[side].message_budget,
                 players: game.teams[side]

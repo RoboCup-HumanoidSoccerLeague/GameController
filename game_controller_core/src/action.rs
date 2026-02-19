@@ -42,7 +42,6 @@ trait_enum! {
         StartSetPlay,
         Substitute,
         SwitchHalf,
-        SwitchTeamMode,
         TeamMessage,
         Timeout,
         Undo,

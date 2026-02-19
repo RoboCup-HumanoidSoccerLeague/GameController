@@ -68,13 +68,8 @@ pub struct CompetitionParams {
     pub sudden_death_penalty_shots: u8,
     /// The duration of a penalty kick in a penalty shoot-out.
     pub penalty_shot_duration: Duration,
-    /// The duration for which the true game state is hidden after a goal.
-    pub delay_after_goal: Duration,
     /// The duration for which the true game state is hidden after switching to the Playing state.
     pub delay_after_playing: Duration,
-    /// The duration for which the true game state is hidden after switching to the Ready state
-    /// from Initial or Timeout (i.e. *not* after a goal or a global game stuck).
-    pub delay_after_ready: Duration,
 }
 
 /// This struct contains constant parameters for one team.

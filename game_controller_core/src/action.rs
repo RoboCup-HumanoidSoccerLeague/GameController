@@ -47,7 +47,6 @@ trait_enum! {
         Undo,
         Unpenalize,
         WaitForPenaltyShot,
-        WaitForReady,
         WaitForSetPlay,
     }
 }

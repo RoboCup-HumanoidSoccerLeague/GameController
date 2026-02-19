@@ -19,14 +19,6 @@ pub struct StartSetPlay {
 
 impl Action for StartSetPlay {
     fn execute(&self, c: &mut ActionContext) {
-        if !c.params.game.test.no_delay
-            && self.set_play == SetPlay::KickOff
-            && c.game.state == State::Standby
-            && !c.fork(c.params.competition.delay_after_ready, |_| false)
-        {
-            return;
-        }
-
         if !c.params.competition.set_plays[self.set_play]
             .ready_duration
             .is_zero()
@@ -70,17 +62,13 @@ impl Action for StartSetPlay {
     }
 
     fn is_legal(&self, c: &ActionContext) -> bool {
-        let has_standby_state = !c.params.competition.delay_after_ready.is_zero();
         self.set_play != SetPlay::NoSetPlay
             && c.game.phase != Phase::PenaltyShootout
             && (if self.set_play == SetPlay::KickOff {
                 // For kick-offs, the kicking side is pre-filled so that only that team can take
                 // the kick-off.
-                (if has_standby_state {
-                    c.game.state == State::Standby
-                } else {
-                    c.game.state == State::Initial || c.game.state == State::Timeout
-                }) && c.game.kicking_side == self.side
+                (c.game.state == State::Initial || c.game.state == State::Timeout)
+                    && c.game.kicking_side == self.side
             } else {
                 // All set plays other than kick-off must be "for" some team.
                 self.side.is_some()

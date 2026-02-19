@@ -21,13 +21,6 @@ impl Action for Goal {
             && (c.game.teams[self.side].score + 1)
                 >= c.game.teams[-self.side].score
                     + c.params.competition.mercy_rule_score_difference;
-        if !c.params.game.test.no_delay
-            && c.game.phase != Phase::PenaltyShootout
-            && !mercy_rule
-            && !c.fork(c.params.competition.delay_after_goal, |_| false)
-        {
-            return;
-        }
 
         if !c.game.teams[self.side].illegal_communication {
             c.game.teams[self.side].score += 1;

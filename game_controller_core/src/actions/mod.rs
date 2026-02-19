@@ -19,7 +19,6 @@ mod timeout;
 mod undo;
 mod unpenalize;
 mod wait_for_penalty_shot;
-mod wait_for_ready;
 mod wait_for_set_play;
 
 pub use add_extra_time::AddExtraTime;
@@ -41,5 +40,4 @@ pub use timeout::Timeout;
 pub use undo::Undo;
 pub use unpenalize::Unpenalize;
 pub use wait_for_penalty_shot::WaitForPenaltyShot;
-pub use wait_for_ready::WaitForReady;
 pub use wait_for_set_play::WaitForSetPlay;

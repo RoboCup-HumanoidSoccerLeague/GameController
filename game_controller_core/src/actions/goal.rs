@@ -23,7 +23,6 @@ impl Action for Goal {
                     + c.params.competition.mercy_rule_score_difference;
         if !c.params.game.test.no_delay
             && c.game.phase != Phase::PenaltyShootout
-            && c.params.competition.challenge_mode.is_none()
             && !mercy_rule
             && !c.fork(c.params.competition.delay_after_goal, |_| false)
         {
@@ -32,9 +31,6 @@ impl Action for Goal {
 
         if !c.game.teams[self.side].illegal_communication {
             c.game.teams[self.side].score += 1;
-        }
-        if c.params.competition.challenge_mode.is_some() {
-            return;
         }
         if mercy_rule {
             c.game.teams.values_mut().for_each(|team| {
@@ -62,7 +58,5 @@ impl Action for Goal {
         c.game.state == State::Playing
             && (c.game.phase != Phase::PenaltyShootout
                 || c.game.kicking_side.is_none_or(|side| side == self.side))
-            && (c.params.competition.challenge_mode.is_none()
-                || self.side == c.params.game.kick_off_side)
     }
 }

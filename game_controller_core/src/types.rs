@@ -10,14 +10,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::timer::Timer;
 
-/// This enumerates the special GameController modes for technical challenges.
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ChallengeMode {
-    /// The mode for the "Most Passes" Leaderboard.
-    MostPassesLeaderboard,
-}
-
 /// This struct contains constant parameters of a penalty type.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,8 +38,6 @@ pub struct SetPlayParams {
 pub struct CompetitionParams {
     /// A "pretty" version of the competition's name.
     pub name: String,
-    /// The mode (if this is a technical challenge).
-    pub challenge_mode: Option<ChallengeMode>,
     /// The number of players per team that can play at the same time.
     pub players_per_team: u8,
     /// The parameters of each penalty type.

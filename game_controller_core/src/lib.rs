@@ -57,13 +57,9 @@ impl GameController {
             secondary_timer: Timer::Stopped,
             timeout_rewind_timer: Timer::Stopped,
             switch_half_timer: Timer::Stopped,
-            teams: EnumMap::from_fn(|side| Team {
+            teams: EnumMap::from_fn(|_| Team {
                 // Most Passes Leaderboard: No goalkeeper.
-                goalkeeper: if params.competition.challenge_mode.is_some() {
-                    None
-                } else {
-                    Some(PlayerNumber::new(1))
-                },
+                goalkeeper: Some(PlayerNumber::new(1)),
                 score: 0,
                 penalty_counter: 0,
                 timeout_budget: params.competition.timeouts_per_team,
@@ -74,11 +70,7 @@ impl GameController {
                 players: (PlayerNumber::MIN..=PlayerNumber::MAX)
                     .map(|player| Player {
                         // By default, the higher-numbered players are substitutes.
-                        penalty: if player <= params.competition.players_per_team
-                            // Most Passes Leaderboard: Other team has no players.
-                            && (params.competition.challenge_mode.is_none()
-                                || side == params.game.kick_off_side)
-                        {
+                        penalty: if player <= params.competition.players_per_team {
                             Penalty::NoPenalty
                         } else {
                             Penalty::Substitute

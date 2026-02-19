@@ -104,10 +104,6 @@ pub struct TestParams {
 pub struct GameParams {
     /// The team parameters for both teams.
     pub teams: EnumMap<Side, TeamParams>,
-    /// If true, the time during Ready/Set states is not counted as part of the duration of a half.
-    /// Otherwise (if false), all Ready/Set states except for the time before the first kick-off in
-    /// a half count as playing time.
-    pub long: bool,
     /// The side which has kick-off in the first half.
     pub kick_off_side: Side,
     /// The side mapping for the first half.

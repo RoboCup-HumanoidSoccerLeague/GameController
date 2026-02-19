@@ -60,7 +60,6 @@ export const getLaunchData = async () => {
             home: { number: 0, fieldPlayerColor: "blue", goalkeeperColor: "yellow" },
             away: { number: 0, fieldPlayerColor: "red", goalkeeperColor: "black" },
           },
-          long: false,
           kickOffSide: "home",
           sideMapping: "homeDefendsLeftGoal",
           test: {
@@ -185,12 +184,6 @@ export const syncWithBackend = async () => {
     return await invoke("sync_with_backend");
   } else {
     return {
-      competition: {
-        delayAfterReady: {
-          secs: 0,
-          nanos: 0,
-        },
-      },
       game: {
         teams: {
           home: {
@@ -204,7 +197,6 @@ export const syncWithBackend = async () => {
             goalkeeperColor: "black",
           },
         },
-        long: false,
       },
     };
   }

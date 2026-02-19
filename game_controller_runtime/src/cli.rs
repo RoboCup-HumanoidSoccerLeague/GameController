@@ -11,9 +11,6 @@ pub struct Args {
     /// Set the competition type.
     #[arg(long, short)]
     pub competition: Option<String>,
-    /// Set whether this is a play-off (long) game.
-    #[arg(long)]
-    pub play_off: bool,
     /// Set the home team (name or number).
     #[arg(long)]
     pub home_team: Option<String>,

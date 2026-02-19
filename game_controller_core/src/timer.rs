@@ -16,8 +16,7 @@ use crate::types::{Game, Params, Phase, State};
 pub enum RunCondition {
     /// The timer counts down in any state.
     Always,
-    /// The timer counts down during Playing, but also during Ready and Set if the game is not a
-    /// "long" game.
+    /// The timer counts down during Ready, Set, and Playing.
     MainTimer,
     /// The timer counts during the Ready and Playing states.
     ReadyOrPlaying,
@@ -42,7 +41,6 @@ impl EvaluatedRunConditions {
             main_timer: game.state == State::Playing
                 || ((game.state == State::Ready || game.state == State::Set)
                     && game.phase != Phase::PenaltyShootout
-                    && !params.game.long
                     && game.primary_timer.get_remaining()
                         != TryInto::<SignedDuration>::try_into(params.competition.half_duration)
                             .unwrap()),

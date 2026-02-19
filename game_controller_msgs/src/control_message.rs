@@ -6,7 +6,7 @@ use game_controller_core::{
 };
 
 use crate::bindings::{
-    COMPETITION_PHASE_PLAYOFF, COMPETITION_PHASE_ROUNDROBIN, COMPETITION_TYPE_NORMAL,
+    COMPETITION_PHASE_ROUNDROBIN, COMPETITION_TYPE_NORMAL,
     GAMECONTROLLER_STRUCT_HEADER, GAMECONTROLLER_STRUCT_SIZE, GAMECONTROLLER_STRUCT_VERSION,
     GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, KICKING_TEAM_NONE,
     MAX_NUM_PLAYERS, PENALTY_NONE, PENALTY_SPL_ILLEGAL_BALL_CONTACT,
@@ -163,11 +163,7 @@ impl ControlMessage {
             to_monitor,
             packet_number,
             players_per_team: params.competition.players_per_team,
-            competition_phase: if params.game.long {
-                COMPETITION_PHASE_PLAYOFF
-            } else {
-                COMPETITION_PHASE_ROUNDROBIN
-            },
+            competition_phase: COMPETITION_PHASE_ROUNDROBIN,
             competition_type: COMPETITION_TYPE_NORMAL,
             game_phase: match (game.phase, game.state) {
                 (_, State::Timeout) => GAME_PHASE_TIMEOUT,

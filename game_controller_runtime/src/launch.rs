@@ -313,7 +313,6 @@ pub fn make_launch_data(config_directory: &Path, args: Args) -> Result<LaunchDat
                     goalkeeper_color: default_team.goalkeeper_colors[1],
                 }),
             },
-            long: args.play_off,
             kick_off_side: Side::Home,
             side_mapping: SideMapping::HomeDefendsLeftGoal,
             test: TestParams {

@@ -120,7 +120,6 @@ Some fields will be pre-filled by command line arguments, if they were specified
 
 The following settings are exposed via the launcher:
 - Competition: This box selects the competition type of the game. It influences the behavior and constants of the GameController and narrows down the set of teams that can be selected.
-- Play-off: This checkbox selects if the game time stops during all Ready and Set states. Should be checked if the game is a quarterfinal, semifinal, final or 3rd place game.
 - Teams:
     - Kick-off for (home / away) team: This box selects which team has the first kick-off, as a result of the coin tosses before the game.
     - The main box selects the team on the respective side.

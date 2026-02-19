@@ -29,25 +29,24 @@ const NUM_OF_TEAM_ACTIONS = 5;
 const GAME_ACTION_BASE = TEAM_ACTION_BASE + NUM_OF_TEAMS * NUM_OF_TEAM_ACTIONS;
 
 export const SWITCH_HALF = 0;
-export const WAIT_FOR_READY = 1;
-export const START_PENALTY_SHOOTOUT_LEFT = 2;
-export const START_PENALTY_SHOOTOUT_RIGHT = 3;
-export const WAIT_FOR_PENALTY_SHOT = 4;
-export const WAIT_FOR_SET_PLAY = 5;
-export const FREE_PENALTY_SHOT = 6;
-export const FINISH_SET_PLAY = 7;
-export const FREE_SET_PLAY = 8;
-export const FINISH_PENALTY_SHOT = 9;
-export const FINISH_HALF = 10;
+export const START_PENALTY_SHOOTOUT_LEFT = 1;
+export const START_PENALTY_SHOOTOUT_RIGHT = 2;
+export const WAIT_FOR_PENALTY_SHOT = 3;
+export const WAIT_FOR_SET_PLAY = 4;
+export const FREE_PENALTY_SHOT = 5;
+export const FINISH_SET_PLAY = 6;
+export const FREE_SET_PLAY = 7;
+export const FINISH_PENALTY_SHOT = 8;
+export const FINISH_HALF = 9;
 // These are game actions because they are part of the center panel.
-export const START_KICK_OFF_NONE = 11;
-export const START_KICK_OFF_HOME = 12;
-export const START_KICK_OFF_AWAY = 13;
-export const ADD_EXTRA_TIME = 14;
-export const REFEREE_TIMEOUT = 15;
-export const GLOBAL_GAME_STUCK = 16;
+export const START_KICK_OFF_NONE = 10;
+export const START_KICK_OFF_HOME = 11;
+export const START_KICK_OFF_AWAY = 12;
+export const ADD_EXTRA_TIME = 13;
+export const REFEREE_TIMEOUT = 14;
+export const GLOBAL_GAME_STUCK = 15;
 
-const NUM_OF_GAME_ACTIONS = 17;
+const NUM_OF_GAME_ACTIONS = 16;
 
 const PENALTY_ACTION_BASE = GAME_ACTION_BASE + NUM_OF_GAME_ACTIONS;
 
@@ -71,11 +70,10 @@ export const getActions = () => {
       { type: "goal", args: { side: side } },
       { type: "startSetPlay", args: { side: side, setPlay: "goalKick" } },
       { type: "startSetPlay", args: { side: side, setPlay: "kickIn" } },
-      { type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } },
+      { type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }
     );
   }
   actions.push({ type: "switchHalf", args: null });
-  actions.push({ type: "waitForReady", args: null });
   actions.push({ type: "startPenaltyShootout", args: { sides: "homeDefendsLeftGoal" } });
   actions.push({ type: "startPenaltyShootout", args: { sides: "homeDefendsRightGoal" } });
   actions.push({ type: "waitForPenaltyShot", args: null });

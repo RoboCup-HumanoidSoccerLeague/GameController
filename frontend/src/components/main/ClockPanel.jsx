@@ -7,9 +7,7 @@ const getPhaseDescription = (game) => {
     case "firstHalf":
       return game.state === "finished" ? "Half-Time Break" : "First Half";
     case "secondHalf":
-      return game.state === "initial" || game.state === "standby"
-        ? "Half-Time Break"
-        : "Second Half";
+      return game.state === "initial" ? "Half-Time Break" : "Second Half";
     case "penaltyShootout":
       return "Penalty Shoot-out";
   }
@@ -24,8 +22,6 @@ const getStateDescription = (game) => {
       return "Initial";
     case "finished":
       return "Finished";
-    case "standby":
-      return "Standby";
   }
   let prefix = {
     noSetPlay: "",

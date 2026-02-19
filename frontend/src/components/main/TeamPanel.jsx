@@ -42,15 +42,7 @@ const TeamStats = ({ game, params, side, sign, team }) => {
           team.illegalCommunication ? "text-fuchsia-400" : ""
         }`}
       >
-        {params.competition.challengeMode != null && game.state === "finished"
-          ? (
-              team.score *
-              (1 +
-                (game.primaryTimer.started.remaining[0] +
-                  (game.primaryTimer.started.remaining[1] > 0 ? 1 : 0)) /
-                  params.competition.halfDuration.secs)
-            ).toFixed(2)
-          : team.score}
+        {team.score}
       </dd>
 
       {game.phase === "penaltyShootout" ? (
@@ -232,7 +224,7 @@ const TeamPanel = ({
         <div className="flex-1">
           <ActionButton
             action={{ type: "goal", args: { side: side } }}
-            label={params.competition.challengeMode == null ? "Goal" : "Point"}
+            label="Goal"
             legal={legalTeamActions[actions.GOAL]}
           />
         </div>

@@ -1,7 +1,7 @@
 import ActionButton from "./ActionButton";
 import * as actions from "../../actions.js";
 
-const getActionName = (params, action) => {
+const getActionName = (action) => {
   switch (action.type) {
     case "addExtraTime":
       return "Add Extra Time";
@@ -16,7 +16,7 @@ const getActionName = (params, action) => {
     case "globalGameStuck":
       return "Global Game Stuck";
     case "goal":
-      return params.competition.challengeMode != null ? "Point" : "Goal";
+      return "Goal";
     case "penalize": {
       const penalty = actions.PENALTIES.find((penalty) => penalty[1] === action.args.call);
       if (penalty) {
@@ -31,7 +31,7 @@ const getActionName = (params, action) => {
     case "startSetPlay":
       switch (action.args.setPlay) {
         case "kickOff":
-          return params.competition.challengeMode != null ? "Set" : "Ready";
+          return "Ready";
         case "kickIn":
           return "Kick-in";
         case "goalKick":
@@ -51,19 +51,17 @@ const getActionName = (params, action) => {
     case "waitForPenaltyShot":
     case "waitForSetPlay":
       return "Set";
-    case "waitForReady":
-      return "Standby";
   }
   return action.type;
 };
 
-const UndoPanel = ({ params, undoActions, legalUndoActions }) => {
+const UndoPanel = ({ undoActions, legalUndoActions }) => {
   return (
     <div className="flex flex-row-reverse gap-2 h-10">
       {legalUndoActions.map((legal, index) => (
         <ActionButton
           action={{ type: "undo", args: { states: index + 1 } }}
-          label={index < undoActions.length ? getActionName(params, undoActions[index]) : "Undo"}
+          label={index < undoActions.length ? getActionName(undoActions[index]) : "Undo"}
           legal={legal}
           key={index}
         />

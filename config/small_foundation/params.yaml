@@ -91,28 +91,28 @@ setPlays:
       nanos: 0
   kickIn:
     duration:
-      secs: 30
+      secs: 45
       nanos: 0
     readyDuration:
       secs: 0
       nanos: 0
   goalKick:
     duration:
-      secs: 30
+      secs: 45
       nanos: 0
     readyDuration:
       secs: 0
       nanos: 0
   cornerKick:
     duration:
-      secs: 30
+      secs: 45
       nanos: 0
     readyDuration:
       secs: 0
       nanos: 0
   pushingFreeKick:
     duration:
-      secs: 30
+      secs: 45
       nanos: 0
     readyDuration:
       secs: 0
@@ -122,7 +122,7 @@ setPlays:
       secs: 60
       nanos: 0
     readyDuration:
-      secs: 30
+      secs: 45
       nanos: 0
 halfDuration:
   secs: 600

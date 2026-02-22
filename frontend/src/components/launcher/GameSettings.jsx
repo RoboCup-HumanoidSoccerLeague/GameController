@@ -9,7 +9,10 @@ const GameSettings = ({ teams, game, setGame }) => {
           game.sideMapping === "homeDefendsRightGoal" ? "flex-row-reverse" : "flex-row"
         } gap-6`}
       >
-        {["home", "away"].map((side) => {
+        {[
+          ["home", "away"],
+          ["away", "home"],
+        ].map(([side, other]) => {
           return (
             <div className="flex flex-col items-center gap-2" key={side}>
               <div className="flex flex-row items-center gap-2">
@@ -35,13 +38,11 @@ const GameSettings = ({ teams, game, setGame }) => {
                 }
                 isTeamLegal={game.teams.home.number != game.teams.away.number}
                 isFieldPlayerColorLegal={
-                  game.teams[side].fieldPlayerColor != game.teams.home.goalkeeperColor &&
-                  game.teams[side].fieldPlayerColor != game.teams.away.goalkeeperColor &&
+                  game.teams[side].fieldPlayerColor != game.teams[other].goalkeeperColor &&
                   game.teams.home.fieldPlayerColor != game.teams.away.fieldPlayerColor
                 }
                 isGoalkeeperColorLegal={
-                  game.teams[side].goalkeeperColor != game.teams.home.fieldPlayerColor &&
-                  game.teams[side].goalkeeperColor != game.teams.away.fieldPlayerColor
+                  game.teams[side].goalkeeperColor != game.teams[other].fieldPlayerColor
                 }
               />
             </div>

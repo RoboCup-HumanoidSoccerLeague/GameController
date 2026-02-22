@@ -17,10 +17,6 @@ const Launcher = ({ setLaunched }) => {
     launchSettings.game.teams.home.fieldPlayerColor !=
       launchSettings.game.teams.away.fieldPlayerColor &&
     launchSettings.game.teams.home.fieldPlayerColor !=
-      launchSettings.game.teams.home.goalkeeperColor &&
-    launchSettings.game.teams.home.fieldPlayerColor !=
-      launchSettings.game.teams.away.goalkeeperColor &&
-    launchSettings.game.teams.away.fieldPlayerColor !=
       launchSettings.game.teams.away.goalkeeperColor &&
     launchSettings.game.teams.away.fieldPlayerColor !=
       launchSettings.game.teams.home.goalkeeperColor;

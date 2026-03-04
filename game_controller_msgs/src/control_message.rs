@@ -2,22 +2,21 @@ use bytes::{BufMut, Bytes, BytesMut};
 
 use game_controller_core::{
     timer::SignedDuration,
-    types::{Color, Game, Params, Penalty, Phase, SetPlay, Side, SideMapping, State},
+    types::{Color, Division, Game, Params, Penalty, Phase, SetPlay, Side, SideMapping, State},
 };
 
 use crate::bindings::{
-    COMPETITION_PHASE_ROUNDROBIN, COMPETITION_TYPE_NORMAL,
+    COMPETITION_TYPE_LARGE, COMPETITION_TYPE_MIDDLE, COMPETITION_TYPE_SMALL,
     GAMECONTROLLER_STRUCT_HEADER, GAMECONTROLLER_STRUCT_SIZE, GAMECONTROLLER_STRUCT_VERSION,
-    GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, KICKING_TEAM_NONE,
-    MAX_NUM_PLAYERS, PENALTY_NONE, PENALTY_SPL_ILLEGAL_BALL_CONTACT,
-    PENALTY_SPL_ILLEGAL_MOTION_IN_SET, PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY,
-    PENALTY_SPL_ILLEGAL_POSITION, PENALTY_SPL_ILLEGAL_POSITION_IN_SET, PENALTY_SPL_INACTIVE_PLAYER,
-    PENALTY_SPL_LEAVING_THE_FIELD, PENALTY_SPL_LOCAL_GAME_STUCK, PENALTY_SPL_PLAYER_PUSHING,
-    PENALTY_SPL_PLAYER_STANCE, PENALTY_SPL_REQUEST_FOR_PICKUP, PENALTY_SUBSTITUTE,
-    SET_PLAY_CORNER_KICK, SET_PLAY_GOAL_KICK, SET_PLAY_KICK_IN, SET_PLAY_NONE,
-    SET_PLAY_PENALTY_KICK, SET_PLAY_PUSHING_FREE_KICK, STATE_FINISHED, STATE_INITIAL,
-    STATE_PLAYING, STATE_READY, STATE_SET, STATE_STANDBY, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN,
-    TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
+    GAME_PHASE_EXTRATIME, GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT,
+    KICKING_TEAM_NONE, MAX_NUM_PLAYERS, PENALTY_BALL_HOLDING, PENALTY_ILLEGAL_POSITIONING,
+    PENALTY_INCAPABLE_ROBOT, PENALTY_LEAVING_THE_FIELD, PENALTY_LOCAL_GAME_STUCK,
+    PENALTY_MOTION_IN_SET, PENALTY_NONE, PENALTY_PICK_UP, PENALTY_PLAYING_WITH_ARMS_HANDS,
+    PENALTY_PUSHING, PENALTY_SUBSTITUTE, SET_PLAY_CORNER_KICK, SET_PLAY_DIRECT_FREE_KICK,
+    SET_PLAY_GOAL_KICK, SET_PLAY_INDIRECT_FREE_KICK, SET_PLAY_NONE, SET_PLAY_PENALTY_KICK,
+    SET_PLAY_THROW_IN, STATE_FINISHED, STATE_INITIAL, STATE_PLAYING, STATE_READY, STATE_SET,
+    TEAM_BLACK, TEAM_BLUE, TEAM_BROWN, TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED,
+    TEAM_WHITE, TEAM_YELLOW,
 };
 
 /// This struct corresponds to the `RobotInfo`.
@@ -63,10 +62,10 @@ pub struct ControlMessage {
     packet_number: u8,
     /// This field corresponds to `RoboCupGameControlData::playersPerTeam`.
     players_per_team: u8,
-    /// This field corresponds to `RoboCupGameControlData::competitionPhase`.
-    competition_phase: u8,
     /// This field corresponds to `RoboCupGameControlData::competitionType`.
     competition_type: u8,
+    /// This field corresponds to `RoboCupGameControlData::stopped`.
+    stopped: bool,
     /// This field corresponds to `RoboCupGameControlData::gamePhase`.
     game_phase: u8,
     /// This field corresponds to `RoboCupGameControlData::state`.
@@ -96,8 +95,8 @@ impl From<ControlMessage> for Bytes {
         bytes.put_u8(GAMECONTROLLER_STRUCT_VERSION);
         bytes.put_u8(message.packet_number);
         bytes.put_u8(message.players_per_team);
-        bytes.put_u8(message.competition_phase);
         bytes.put_u8(message.competition_type);
+        bytes.put_u8(if message.stopped { 1 } else { 0 });
         bytes.put_u8(message.game_phase);
         bytes.put_u8(message.state);
         bytes.put_u8(message.set_play);
@@ -163,11 +162,16 @@ impl ControlMessage {
             to_monitor,
             packet_number,
             players_per_team: params.competition.players_per_team,
-            competition_phase: COMPETITION_PHASE_ROUNDROBIN,
-            competition_type: COMPETITION_TYPE_NORMAL,
+            competition_type: match params.competition.division {
+                Division::Small => COMPETITION_TYPE_SMALL,
+                Division::Middle => COMPETITION_TYPE_MIDDLE,
+                Division::Large => COMPETITION_TYPE_LARGE,
+            },
+            stopped: game.stopped,
             game_phase: match (game.phase, game.state) {
                 (_, State::Timeout) => GAME_PHASE_TIMEOUT,
                 (Phase::FirstHalf | Phase::SecondHalf, _) => GAME_PHASE_NORMAL,
+                (Phase::FirstExtraHalf | Phase::SecondExtraHalf, _) => GAME_PHASE_EXTRATIME,
                 (Phase::PenaltyShootout, _) => GAME_PHASE_PENALTYSHOOT,
             },
             state: match game.state {
@@ -176,15 +180,15 @@ impl ControlMessage {
                 State::Set => STATE_SET,
                 State::Playing => STATE_PLAYING,
                 State::Finished => STATE_FINISHED,
-                State::Standby => STATE_STANDBY,
             },
             set_play: match game.set_play {
                 SetPlay::NoSetPlay | SetPlay::KickOff => SET_PLAY_NONE,
-                SetPlay::KickIn => SET_PLAY_KICK_IN,
+                SetPlay::DirectFreeKick => SET_PLAY_DIRECT_FREE_KICK,
+                SetPlay::IndirectFreeKick => SET_PLAY_INDIRECT_FREE_KICK,
+                SetPlay::PenaltyKick => SET_PLAY_PENALTY_KICK,
+                SetPlay::ThrowIn => SET_PLAY_THROW_IN,
                 SetPlay::GoalKick => SET_PLAY_GOAL_KICK,
                 SetPlay::CornerKick => SET_PLAY_CORNER_KICK,
-                SetPlay::PushingFreeKick => SET_PLAY_PUSHING_FREE_KICK,
-                SetPlay::PenaltyKick => SET_PLAY_PENALTY_KICK,
             },
             first_half: game.phase == Phase::FirstHalf,
             kicking_team: game
@@ -219,20 +223,16 @@ impl ControlMessage {
                     .map(|player| ControlMessagePlayer {
                         penalty: match player.penalty {
                             Penalty::NoPenalty => PENALTY_NONE,
+                            Penalty::IllegalPositioning => PENALTY_ILLEGAL_POSITIONING,
+                            Penalty::MotionInSet => PENALTY_MOTION_IN_SET,
+                            Penalty::LocalGameStuck => PENALTY_LOCAL_GAME_STUCK,
+                            Penalty::IncapableRobot => PENALTY_INCAPABLE_ROBOT,
+                            Penalty::PickedUp => PENALTY_PICK_UP,
+                            Penalty::BallHolding => PENALTY_BALL_HOLDING,
+                            Penalty::LeavingTheField => PENALTY_LEAVING_THE_FIELD,
+                            Penalty::PlayingWithArmsHands => PENALTY_PLAYING_WITH_ARMS_HANDS,
+                            Penalty::Pushing => PENALTY_PUSHING,
                             Penalty::Substitute => PENALTY_SUBSTITUTE,
-                            Penalty::PickedUp => PENALTY_SPL_REQUEST_FOR_PICKUP,
-                            Penalty::IllegalPositionInSet => PENALTY_SPL_ILLEGAL_POSITION_IN_SET,
-                            Penalty::IllegalPosition => PENALTY_SPL_ILLEGAL_POSITION,
-                            Penalty::MotionInStandby => PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY,
-                            Penalty::MotionInSet => PENALTY_SPL_ILLEGAL_MOTION_IN_SET,
-                            Penalty::FallenInactive => PENALTY_SPL_INACTIVE_PLAYER,
-                            Penalty::LocalGameStuck => PENALTY_SPL_LOCAL_GAME_STUCK,
-                            Penalty::BallHolding | Penalty::PlayingWithArmsHands => {
-                                PENALTY_SPL_ILLEGAL_BALL_CONTACT
-                            }
-                            Penalty::PlayerStance => PENALTY_SPL_PLAYER_STANCE,
-                            Penalty::PlayerPushing => PENALTY_SPL_PLAYER_PUSHING,
-                            Penalty::LeavingTheField => PENALTY_SPL_LEAVING_THE_FIELD,
                         },
                         secs_till_unpenalized: get_duration(
                             player.penalty_timer.get_remaining(),

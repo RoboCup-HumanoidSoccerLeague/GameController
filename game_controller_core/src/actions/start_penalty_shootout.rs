@@ -32,8 +32,8 @@ impl Action for StartPenaltyShootout {
         c.game.phase = Phase::PenaltyShootout;
         c.game.state = State::Initial;
         c.game.set_play = SetPlay::NoSetPlay;
-        // "The first (left) team in the GameController will have the striker robot for the first
-        // penalty kick." - 2023 rule book section 3.16
+        // "The team listed first on the competition schedule will have the striker robot for the
+        // first penalty kick." - HSL rule book 2026 section 14.2
         c.game.kicking_side = Some(Side::Home);
         c.game.primary_timer = Timer::Stopped;
         c.game.secondary_timer = Timer::Stopped;

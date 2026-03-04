@@ -29,7 +29,6 @@ impl Action for Timeout {
                 c.game.kicking_side = Some(-side);
             } else if c.game.phase != Phase::PenaltyShootout
                 && c.game.state != State::Initial
-                && c.game.state != State::Standby
                 && c.game.state != State::Timeout
                 && c.game.set_play != SetPlay::KickOff
             {
@@ -55,7 +54,7 @@ impl Action for Timeout {
             // half-time break if the timer is already negative because this happens in interleaved
             // games.
             remaining: if c.game.state == State::Timeout
-                || ((c.game.state == State::Initial || c.game.state == State::Standby)
+                || (c.game.state == State::Initial
                     && c.game.phase == Phase::SecondHalf
                     && c.game.secondary_timer.get_remaining().is_positive())
             {

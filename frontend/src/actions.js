@@ -1,15 +1,12 @@
 export const PENALTIES = [
   ["Pushing", "pushing"],
-  ["Foul", "foul"],
-  ["Fallen / Inactive", "fallenInactive"],
+  ["Incapable Robot", "incapableRobot"],
   ["Leaving the Field", "leavingTheField"],
   ["Motion in Set", "motionInSet"],
   ["Illegal Position", "illegalPosition"],
   ["Ball Holding", "ballHolding"],
-  ["Penalty Kick", "penaltyKick"],
   ["Local Game Stuck", "localGameStuck"],
   ["Pick-Up", "requestForPickUp"],
-  ["Player Stance", "playerStance"],
   ["Arms / Hands", "playingWithArmsHands"],
 ];
 
@@ -20,11 +17,14 @@ const TEAM_ACTION_BASE = 0;
 
 export const TIMEOUT = 0;
 export const GOAL = 1;
-export const GOAL_KICK = 2;
-export const KICK_IN = 3;
-export const CORNER_KICK = 4;
+export const DIRECT_FREE_KICK = 2;
+export const INDIRECT_FREE_KICK = 3;
+export const PENALTY_KICK = 4;
+export const THROW_IN = 5;
+export const GOAL_KICK = 6;
+export const CORNER_KICK = 7;
 
-const NUM_OF_TEAM_ACTIONS = 5;
+const NUM_OF_TEAM_ACTIONS = 8;
 
 const GAME_ACTION_BASE = TEAM_ACTION_BASE + NUM_OF_TEAMS * NUM_OF_TEAM_ACTIONS;
 
@@ -45,8 +45,10 @@ export const START_KICK_OFF_AWAY = 12;
 export const ADD_EXTRA_TIME = 13;
 export const REFEREE_TIMEOUT = 14;
 export const GLOBAL_GAME_STUCK = 15;
+export const STOP_PLAY = 16;
+export const RESUME_PLAY = 17;
 
-const NUM_OF_GAME_ACTIONS = 16;
+const NUM_OF_GAME_ACTIONS = 18;
 
 const PENALTY_ACTION_BASE = GAME_ACTION_BASE + NUM_OF_GAME_ACTIONS;
 
@@ -68,8 +70,11 @@ export const getActions = () => {
     actions.push(
       { type: "timeout", args: { side: side } },
       { type: "goal", args: { side: side } },
+      { type: "startSetPlay", args: { side: side, setPlay: "directFreeKick" } },
+      { type: "startSetPlay", args: { side: side, setPlay: "indirectFreeKick" } },
+      { type: "startSetPlay", args: { side: side, setPlay: "penaltyKick" } },
+      { type: "startSetPlay", args: { side: side, setPlay: "throwIn" } },
       { type: "startSetPlay", args: { side: side, setPlay: "goalKick" } },
-      { type: "startSetPlay", args: { side: side, setPlay: "kickIn" } },
       { type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }
     );
   }
@@ -89,6 +94,8 @@ export const getActions = () => {
   actions.push({ type: "addExtraTime", args: null });
   actions.push({ type: "timeout", args: { side: null } });
   actions.push({ type: "globalGameStuck", args: null });
+  actions.push({ type: "stopPlay", args: { resume: false } });
+  actions.push({ type: "stopPlay", args: { resume: true } });
   for (const penalty of PENALTIES) {
     for (const side of ["home", "away"]) {
       for (let number = 1; number <= NUM_OF_PLAYERS; ++number) {

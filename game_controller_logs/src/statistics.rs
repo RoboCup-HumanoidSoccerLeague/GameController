@@ -136,17 +136,6 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
                 call,
             }) => {
                 statistics[side].penalties[call] += 1;
-                match call {
-                    PenaltyCall::Foul => {
-                        statistics[-side].set_plays_for[SetPlay::PushingFreeKick] += 1;
-                        statistics[side].set_plays_against[SetPlay::PushingFreeKick] += 1;
-                    }
-                    PenaltyCall::PenaltyKick => {
-                        statistics[-side].set_plays_for[SetPlay::PenaltyKick] += 1;
-                        statistics[side].set_plays_against[SetPlay::PenaltyKick] += 1;
-                    }
-                    _ => {}
-                }
             }
             VAction::StartSetPlay(StartSetPlay {
                 side: Some(side),
@@ -177,9 +166,7 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
             statistics[side].penalties[PenaltyCall::LocalGameStuck],
             statistics[side].penalties[PenaltyCall::BallHolding],
             statistics[side].penalties[PenaltyCall::PlayerStance],
-            statistics[side].penalties[PenaltyCall::Pushing]
-                + statistics[side].penalties[PenaltyCall::Foul]
-                + statistics[side].penalties[PenaltyCall::PenaltyKick],
+            statistics[side].penalties[PenaltyCall::Pushing],
             statistics[side].penalties[PenaltyCall::PlayingWithArmsHands],
             statistics[side].penalties[PenaltyCall::LeavingTheField],
             statistics[side].set_plays_against[SetPlay::KickIn],

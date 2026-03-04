@@ -1,4 +1,5 @@
 name: "Large - Foundation"
+division: large
 playersPerTeam: 3
 penalties:
   noPenalty:
@@ -6,37 +7,12 @@ penalties:
       secs: 0
       nanos: 0
     incremental: false
-  substitute:
-    duration:
-      secs: 0
-      nanos: 0
-    incremental: false
-  pickedUp:
-    duration:
-      secs: 30
-      nanos: 0
-    incremental: false
-  illegalPositionInSet:
-    duration:
-      secs: 15
-      nanos: 0
-    incremental: false
-  illegalPosition:
+  illegalPositioning:
     duration:
       secs: 30
       nanos: 0
     incremental: true
-  motionInStandby:
-    duration:
-      secs: 30
-      nanos: 0
-    incremental: false
   motionInSet:
-    duration:
-      secs: 15
-      nanos: 0
-    incremental: false
-  fallenInactive:
     duration:
       secs: 30
       nanos: 0
@@ -46,22 +22,17 @@ penalties:
       secs: 30
       nanos: 0
     incremental: false
+  incapableRobot:
+    duration:
+      secs: 30
+      nanos: 0
+    incremental: false
+  pickedUp:
+    duration:
+      secs: 30
+      nanos: 0
+    incremental: true
   ballHolding:
-    duration:
-      secs: 30
-      nanos: 0
-    incremental: true
-  playerStance:
-    duration:
-      secs: 30
-      nanos: 0
-    incremental: true
-  playerPushing:
-    duration:
-      secs: 30
-      nanos: 0
-    incremental: true
-  playingWithArmsHands:
     duration:
       secs: 30
       nanos: 0
@@ -71,6 +42,21 @@ penalties:
       secs: 30
       nanos: 0
     incremental: true
+  playingWithArmsHands:
+    duration:
+      secs: 30
+      nanos: 0
+    incremental: true
+  pushing:
+    duration:
+      secs: 30
+      nanos: 0
+    incremental: true
+  substitute:
+    duration:
+      secs: 0
+      nanos: 0
+    incremental: false
 penaltyDurationIncrement:
   secs: 15
   nanos: 0
@@ -89,7 +75,28 @@ setPlays:
     readyDuration:
       secs: 45
       nanos: 0
-  kickIn:
+  directFreeKick:
+    duration:
+      secs: 45
+      nanos: 0
+    readyDuration:
+      secs: 0
+      nanos: 0
+  indirectFreeKick:
+    duration:
+      secs: 45
+      nanos: 0
+    readyDuration:
+      secs: 0
+      nanos: 0
+  penaltyKick:
+    duration:
+      secs: 60
+      nanos: 0
+    readyDuration:
+      secs: 45
+      nanos: 0
+  throwIn:
     duration:
       secs: 45
       nanos: 0
@@ -109,20 +116,6 @@ setPlays:
       nanos: 0
     readyDuration:
       secs: 0
-      nanos: 0
-  pushingFreeKick:
-    duration:
-      secs: 45
-      nanos: 0
-    readyDuration:
-      secs: 0
-      nanos: 0
-  penaltyKick:
-    duration:
-      secs: 60
-      nanos: 0
-    readyDuration:
-      secs: 45
       nanos: 0
 halfDuration:
   secs: 600

@@ -8,6 +8,10 @@ const getPhaseDescription = (game) => {
       return game.state === "finished" ? "Half-Time Break" : "First Half";
     case "secondHalf":
       return game.state === "initial" ? "Half-Time Break" : "Second Half";
+    case "firstExtraHalf":
+      return game.state === "finished" ? "Half-Time Break" : "First Extra Half";
+    case "secondExtraHalf":
+      return game.state === "initial" ? "Half-Time Break" : "Second Extra Half";
     case "penaltyShootout":
       return "Penalty Shoot-out";
   }
@@ -26,11 +30,12 @@ const getStateDescription = (game) => {
   let prefix = {
     noSetPlay: "",
     kickOff: "Kick-off",
-    kickIn: "Kick-in",
+    directFreeKick: "Direct Free Kick",
+    indirectFreeKick: "Indirect Free Kick",
+    penaltyKick: "Penalty Kick",
+    throwIn: "Throw-in",
     goalKick: "Goal Kick",
     cornerKick: "Corner Kick",
-    pushingFreeKick: "Pushing Free Kick",
-    penaltyKick: "Penalty Kick",
   }[game.setPlay];
   let state = "";
   if (game.state === "ready") {

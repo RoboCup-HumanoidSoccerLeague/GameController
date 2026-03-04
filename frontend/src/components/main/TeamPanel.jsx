@@ -79,10 +79,10 @@ const FreeKickButtons = ({ game, legalTeamActions, side, sign }) => {
         legal={legalTeamActions[actions.GOAL_KICK]}
       />
       <ActionButton
-        action={{ type: "startSetPlay", args: { side: side, setPlay: "kickIn" } }}
-        active={game.setPlay === "kickIn" && game.kickingSide === side}
-        label="Kick-in"
-        legal={legalTeamActions[actions.KICK_IN]}
+        action={{ type: "startSetPlay", args: { side: side, setPlay: "throwIn" } }}
+        active={game.setPlay === "throwIn" && game.kickingSide === side}
+        label="Throw-in"
+        legal={legalTeamActions[actions.THROW_IN]}
       />
       <ActionButton
         action={{ type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }}

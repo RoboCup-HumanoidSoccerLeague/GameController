@@ -32,12 +32,24 @@ pub struct SetPlayParams {
     pub ready_duration: Duration,
 }
 
+/// This enumerates the divisions of the Humanoid Soccer League. Note that this doesn't say
+/// anything about the field size.
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Division {
+    Small,
+    Middle,
+    Large,
+}
+
 /// This struct contains constant parameters of a (sub)competition.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompetitionParams {
     /// A "pretty" version of the competition's name.
     pub name: String,
+    /// The division of this (sub)competition.
+    pub division: Division,
     /// The number of players per team that can play at the same time.
     pub players_per_team: u8,
     /// The parameters of each penalty type.
@@ -145,6 +157,10 @@ pub enum Phase {
     FirstHalf,
     /// The second half of the regular playing time.
     SecondHalf,
+    /// The first half of the extra time (to decide the outcome of a game).
+    FirstExtraHalf,
+    /// The second half of the extra time (to decide the outcome of a game).
+    SecondExtraHalf,
     /// A penalty shoot-out to decide the outcome of a game.
     PenaltyShootout,
 }
@@ -155,8 +171,6 @@ pub enum Phase {
 pub enum State {
     /// This state is active before each half and before a penalty shoot-out.
     Initial,
-    /// This state is active when the referee gestures the transition to Ready.
-    Standby,
     /// This state is active when certain set plays are set up.
     Ready,
     /// This state is active after certain set plays have been set up and before each penalty shot.
@@ -177,16 +191,18 @@ pub enum SetPlay {
     NoSetPlay,
     /// A kick-off is in progress.
     KickOff,
-    /// A kick-in is in progress.
-    KickIn,
+    /// A direct free kick is in progress.
+    DirectFreeKick,
+    /// An indirect free kick is in progress.
+    IndirectFreeKick,
+    /// A penalty kick is in progress.
+    PenaltyKick,
+    /// A throw-in is in progress.
+    ThrowIn,
     /// A goal kick is in progress.
     GoalKick,
     /// A corner kick is in progress.
     CornerKick,
-    /// A pushing free kick is in progress.
-    PushingFreeKick,
-    /// A penalty kick is in progress.
-    PenaltyKick,
 }
 
 /// This enumerates the jersey colors. Values may be added to match actually submitted jersey designs.
@@ -211,54 +227,46 @@ pub enum Color {
 pub enum Penalty {
     /// The player is not penalized.
     NoPenalty,
-    /// The player is currently a substitute.
-    Substitute,
-    /// The player has been picked up by the team captain.
-    PickedUp,
-    /// The player has been illegally positioned when the game state switched to the Set state.
-    IllegalPositionInSet,
     /// The player has moved to an illegal position.
-    IllegalPosition,
-    /// The player has moved during the Standby state.
-    MotionInStandby,
+    IllegalPositioning,
     /// The player has moved during the Set state.
     MotionInSet,
-    /// The player has fallen or become inactive for too long.
-    FallenInactive,
     /// The player has caused a local game stuck.
     LocalGameStuck,
+    /// The player has fallen or become inactive for too long.
+    IncapableRobot,
+    /// The player has been picked up by the team captain.
+    PickedUp,
     /// The player has committed a ball holding offence.
     BallHolding,
-    /// The player has stayed in a wide stance for too long.
-    PlayerStance,
-    /// The player has committed a pushing offence.
-    PlayerPushing,
-    /// The player has illegally played the ball with its arms or hands.
-    PlayingWithArmsHands,
     /// The player has tried to leave the field.
     LeavingTheField,
+    /// The player has illegally played the ball with its arms or hands.
+    PlayingWithArmsHands,
+    /// The player has committed a pushing offence.
+    Pushing,
+    /// The player is currently a substitute.
+    Substitute,
 }
 
 /// This enumerates the possible referee calls for penalties. They mostly correspond to [Penalty],
 /// but there are some calls that map to different penalties in different states
 /// ([PenaltyCall::IllegalPosition]) and there are calls that map to the same penalty but with
-/// different side effects ([PenaltyCall::Foul], [PenaltyCall::PenaltyKick]).
+/// different side effects ([PenaltyCall::Foul], [PenaltyCall::PenaltyKick]). At least that used to
+/// be the case in the Standard Platform League. For the Humanoid Soccer League, this may be
+/// redundant.
 #[derive(Clone, Copy, Debug, Deserialize, Enum, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PenaltyCall {
-    RequestForPickUp,
     IllegalPosition,
-    MotionInStandby,
     MotionInSet,
-    FallenInactive,
     LocalGameStuck,
+    IncapableRobot,
+    RequestForPickUp,
     BallHolding,
-    PlayerStance,
-    Pushing,
-    Foul,
-    PenaltyKick,
-    PlayingWithArmsHands,
     LeavingTheField,
+    PlayingWithArmsHands,
+    Pushing,
 }
 
 /// This enumerates the two opposing teams of the game. The name `Side` may be slightly misleading
@@ -337,6 +345,8 @@ impl From<PlayerNumber> for u8 {
 pub struct Game {
     /// The current mapping of the home/away team to the left/right side of the field.
     pub sides: SideMapping,
+    /// Whether the game is (emergency) stopped.
+    pub stopped: bool,
     /// The current phase of the game.
     pub phase: Phase,
     /// The current state of the game.

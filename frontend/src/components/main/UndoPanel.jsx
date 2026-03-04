@@ -32,14 +32,22 @@ const getActionName = (action) => {
       switch (action.args.setPlay) {
         case "kickOff":
           return "Ready";
-        case "kickIn":
-          return "Kick-in";
+        case "directFreeKick":
+          return "Direct Free Kick";
+        case "indirectFreeKick":
+          return "Indirect Free Kick";
+        case "penaltyKick":
+          return "Penalty Kick";
+        case "throwIn":
+          return "Throw-in";
         case "goalKick":
           return "Goal Kick";
         case "cornerKick":
           return "Corner Kick";
       }
       break;
+    case "stopPlay":
+      return action.args.resume ? "Resume Play" : "Stop Play";
     case "substitute":
       return "Substitute";
     case "switchHalf":

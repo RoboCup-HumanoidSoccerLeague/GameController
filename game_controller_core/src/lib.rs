@@ -45,6 +45,7 @@ impl GameController {
     pub fn new(params: Params, logger: Box<dyn Logger + Send>) -> Self {
         let game = Game {
             sides: params.game.side_mapping,
+            stopped: false,
             phase: Phase::FirstHalf,
             state: State::Initial,
             set_play: SetPlay::NoSetPlay,

@@ -28,6 +28,7 @@ pub enum RunCondition {
 /// technical reasons that the conditions can not be evaluated directly in [Timer::seek] or
 /// [Timer::is_running].
 pub struct EvaluatedRunConditions {
+    always: bool,
     main_timer: bool,
     ready_or_playing: bool,
     playing: bool,
@@ -38,14 +39,17 @@ impl EvaluatedRunConditions {
     /// later.
     pub fn new(game: &Game, params: &Params) -> Self {
         Self {
-            main_timer: game.state == State::Playing
+            always: !game.stopped,
+            main_timer: (game.state == State::Playing
                 || ((game.state == State::Ready || game.state == State::Set)
                     && game.phase != Phase::PenaltyShootout
                     && game.primary_timer.get_remaining()
                         != TryInto::<SignedDuration>::try_into(params.competition.half_duration)
-                            .unwrap()),
-            ready_or_playing: game.state == State::Ready || game.state == State::Playing,
-            playing: game.state == State::Playing,
+                            .unwrap()))
+                && !game.stopped,
+            ready_or_playing: (game.state == State::Ready || game.state == State::Playing)
+                && !game.stopped,
+            playing: game.state == State::Playing && !game.stopped,
         }
     }
 }
@@ -55,7 +59,7 @@ impl Index<RunCondition> for EvaluatedRunConditions {
 
     fn index(&self, index: RunCondition) -> &Self::Output {
         match index {
-            RunCondition::Always => &true,
+            RunCondition::Always => &self.always,
             RunCondition::MainTimer => &self.main_timer,
             RunCondition::ReadyOrPlaying => &self.ready_or_playing,
             RunCondition::Playing => &self.playing,

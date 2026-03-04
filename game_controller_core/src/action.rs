@@ -40,6 +40,7 @@ trait_enum! {
         SelectPenaltyShotPlayer,
         StartPenaltyShootout,
         StartSetPlay,
+        StopPlay,
         Substitute,
         SwitchHalf,
         TeamMessage,

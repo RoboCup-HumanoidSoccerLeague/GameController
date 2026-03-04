@@ -3,9 +3,9 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::action::{Action, ActionContext, VAction};
-use crate::actions::{StartSetPlay, Unpenalize};
+use crate::actions::Unpenalize;
 use crate::timer::{BehaviorAtZero, RunCondition, SignedDuration, Timer};
-use crate::types::{Penalty, PenaltyCall, Phase, PlayerNumber, SetPlay, Side, State};
+use crate::types::{Penalty, PenaltyCall, Phase, PlayerNumber, Side, State};
 
 /// This struct defines an action to apply a penalty to players.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -35,22 +35,12 @@ impl Action for Penalize {
         // Map the penalty call to a penalty.
         let penalty = match self.call {
             PenaltyCall::RequestForPickUp => Penalty::PickedUp,
-            PenaltyCall::IllegalPosition => {
-                if c.game.state == State::Set {
-                    Penalty::IllegalPositionInSet
-                } else {
-                    Penalty::IllegalPosition
-                }
-            }
-            PenaltyCall::MotionInStandby => Penalty::MotionInStandby,
+            PenaltyCall::IllegalPosition => Penalty::IllegalPositioning,
             PenaltyCall::MotionInSet => Penalty::MotionInSet,
-            PenaltyCall::FallenInactive => Penalty::FallenInactive,
+            PenaltyCall::IncapableRobot => Penalty::IncapableRobot,
             PenaltyCall::LocalGameStuck => Penalty::LocalGameStuck,
             PenaltyCall::BallHolding => Penalty::BallHolding,
-            PenaltyCall::PlayerStance => Penalty::PlayerStance,
-            PenaltyCall::Pushing => Penalty::PlayerPushing,
-            PenaltyCall::Foul => Penalty::PlayerPushing,
-            PenaltyCall::PenaltyKick => Penalty::PlayerPushing,
+            PenaltyCall::Pushing => Penalty::Pushing,
             PenaltyCall::PlayingWithArmsHands => Penalty::PlayingWithArmsHands,
             PenaltyCall::LeavingTheField => Penalty::LeavingTheField,
         };
@@ -112,10 +102,7 @@ impl Action for Penalize {
                     }),
                     run_condition: RunCondition::ReadyOrPlaying,
                     // Motion in Standby / Set is removed automatically.
-                    behavior_at_zero: if matches!(
-                        penalty,
-                        Penalty::MotionInStandby | Penalty::MotionInSet
-                    ) {
+                    behavior_at_zero: if penalty == Penalty::MotionInSet {
                         BehaviorAtZero::Expire(vec![VAction::Unpenalize(Unpenalize {
                             side: self.side,
                             player,
@@ -134,19 +121,6 @@ impl Action for Penalize {
                 c.game.teams[self.side].penalty_counter += 1;
             }
         }
-
-        // If this call requires switching to a set play, it is started here.
-        if let Some(set_play) = match self.call {
-            PenaltyCall::Foul => Some(SetPlay::PushingFreeKick),
-            PenaltyCall::PenaltyKick => Some(SetPlay::PenaltyKick),
-            _ => None,
-        } {
-            StartSetPlay {
-                side: Some(-self.side),
-                set_play,
-            }
-            .execute(c);
-        }
     }
 
     fn is_legal(&self, c: &ActionContext) -> bool {
@@ -163,9 +137,8 @@ impl Action for Penalize {
                             || c.game.state == State::Set
                             || c.game.state == State::Playing)
                 }
-                PenaltyCall::MotionInStandby => c.game.state == State::Standby,
                 PenaltyCall::MotionInSet => c.game.state == State::Set,
-                PenaltyCall::FallenInactive => {
+                PenaltyCall::IncapableRobot => {
                     c.game.state == State::Ready
                         || c.game.state == State::Set
                         || c.game.state == State::Playing
@@ -179,27 +152,12 @@ impl Action for Penalize {
                                                  // GameController operator clicks the goal first.
                         || c.game.state == State::Playing
                 }
-                PenaltyCall::PlayerStance => {
-                    c.game.state == State::Ready
-                        || c.game.state == State::Set
-                        || c.game.state == State::Playing
-                }
                 PenaltyCall::Pushing => {
                     // Not possible in Set, but can happen in Ready shortly before the timer
                     // expires.
                     (c.game.phase != Phase::PenaltyShootout
                         && (c.game.state == State::Ready || c.game.state == State::Set))
                         || c.game.state == State::Playing
-                }
-                PenaltyCall::Foul => {
-                    c.game.phase != Phase::PenaltyShootout
-                        && c.game.state == State::Playing
-                        && c.game.set_play == SetPlay::NoSetPlay
-                }
-                PenaltyCall::PenaltyKick => {
-                    c.game.phase != Phase::PenaltyShootout
-                        && c.game.state == State::Playing
-                        && c.game.set_play == SetPlay::NoSetPlay
                 }
                 PenaltyCall::PlayingWithArmsHands => {
                     c.game.state == State::Ready // Not possible in this state, but can happen in

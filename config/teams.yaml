@@ -18,11 +18,11 @@
   number: 6
   fieldPlayerColors: [red, blue, yellow, black, white, green, orange, purple, brown, gray]
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
-- name: WF Wolves
+- name: whIRLwind Amsterdam
   number: 8
   fieldPlayerColors: [red, blue, yellow, black, white, green, orange, purple, brown, gray]
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
-- name: whIRLwind Amsterdam
+- name: WF Wolves
   number: 9
   fieldPlayerColors: [red, blue, yellow, black, white, green, orange, purple, brown, gray]
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]

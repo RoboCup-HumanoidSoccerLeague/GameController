@@ -26,6 +26,10 @@ pub struct ControlMessagePlayer {
     penalty: u8,
     /// This field corresponds to `RobotInfo::secsTillUnpenalised`.
     secs_till_unpenalized: u8,
+    /// This field corresponds to `RobotInfo::warnings`.
+    warnings: u8,
+    /// This field corresponds to `RobotInfo::cautions`.
+    cautions: u8,
 }
 
 /// This struct corresponds to the `TeamInfo`.
@@ -116,6 +120,8 @@ impl From<ControlMessage> for Bytes {
             for player in &team.players {
                 bytes.put_u8(player.penalty);
                 bytes.put_u8(player.secs_till_unpenalized);
+                bytes.put_u8(player.warnings);
+                bytes.put_u8(player.cautions);
             }
         }
         assert!(bytes.len() == GAMECONTROLLER_STRUCT_SIZE);
@@ -239,6 +245,8 @@ impl ControlMessage {
                             u8::MIN as i64,
                             u8::MAX as i64,
                         ) as u8,
+                        warnings: 0u8,
+                        cautions: 0u8,
                     }),
             }),
         }

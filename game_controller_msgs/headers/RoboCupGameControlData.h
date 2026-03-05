@@ -25,7 +25,7 @@
 #define COMPETITION_TYPE_SMALL  0
 #define COMPETITION_TYPE_MIDDLE 1
 #define COMPETITION_TYPE_LARGE  2
-// TODO: should there be constants for Advanced vs. Foundation? or is this redundant with
+// TODO: should there be constants for Advanced vs. Foundation? or is this redundant with playersPerTeam
 
 #define GAME_PHASE_NORMAL       0
 #define GAME_PHASE_PENALTYSHOOT 1
@@ -66,7 +66,8 @@ struct RobotInfo
 {
   uint8_t penalty;             // penalty state of the player
   uint8_t secsTillUnpenalised; // estimate of time till unpenalised
-  // TODO: cards
+  uint8_t warnings;            // number of warnings
+  uint8_t cautions;            // number of cautions (yellow cards)
 };
 
 struct TeamInfo

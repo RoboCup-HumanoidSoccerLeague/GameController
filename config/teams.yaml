@@ -12,7 +12,7 @@
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
 - name: B-Human
   number: 5
-  fieldPlayerColors: [white, red]
+  fieldPlayerColors: [red, white]
   goalkeeperColors: [blue, purple, white, red]
 - name: Hamburg Bit-Bots
   number: 6

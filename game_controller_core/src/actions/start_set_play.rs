@@ -56,6 +56,7 @@ impl Action for StartSetPlay {
                     FinishSetPlay,
                 )]),
             };
+            c.game.stopped = true;
         }
         c.game.set_play = self.set_play;
         c.game.kicking_side = self.side;

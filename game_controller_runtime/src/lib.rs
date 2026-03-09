@@ -110,7 +110,7 @@ async fn start_network(
 
     let mut join_set = JoinSet::new();
 
-    let control_message_sender =
+    let mut control_message_sender =
         ControlMessageSender::new(broadcast_address, params, control_receiver, false)
             .await
             .context("could not create control message sender")?;

@@ -70,9 +70,10 @@ Currently, all network communication with the GameController uses IPv4, although
 
 The GameController communicates with robot players via three channels:
 - It sends control messages at a rate of 2 hertz (UDP broadcast on port 3838, format specified in the struct `RoboCupGameControlData` in `game_controller_msgs/headers/RoboCupGameControlData.h`).
-    These control messages do not always represent the true game state, specifically after a goal or a transition to the `playing` state.
-    After these events, they continue to maintain the state before the event for up to 15 seconds, or until another event happens that could not have happened in this "fake" state.
+    These control messages do not always represent the true game state, specifically after a transition to the `playing` state.
+    After these events, they continue to maintain the state before the event for up to 10 seconds, or until another event happens that could not have happened in this "fake" state.
     Note that this behavior differs from the old GameController, which would always keep the state attribute (and some others) at the old value for 15 seconds, even when other attributes already clearly indicated that it was the new state (e.g. players are unpenalized although their timers aren't at zero yet, or set plays starting during the "fake" `set` state when it is actually already `playing`).
+    A control message is sent immediately and the rate is temporarily increased to 5 hertz when play is stopped.
 - It receives status messages from the robot players which must send them at a rate between 0.5 hertz and 2 hertz (UDP unicast on port 3939, format specified in the struct `RoboCupGameControlReturnData` in `game_controller_msgs/headers/RoboCupGameControlData.h`).
 - It receives team messages from the robot players (UDP broadcast on port 10000 + team number, up to 512 bytes of payload with arbitrary format).
 

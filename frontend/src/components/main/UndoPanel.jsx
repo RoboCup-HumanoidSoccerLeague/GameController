@@ -26,6 +26,8 @@ const getActionName = (action) => {
     }
     case "selectPenaltyShotPlayer":
       return "Select";
+    case "startExtraTime":
+      return "Extra Time";
     case "startPenaltyShootout":
       return "Penalty Shoot-out";
     case "startSetPlay":

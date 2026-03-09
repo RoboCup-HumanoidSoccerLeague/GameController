@@ -1,10 +1,8 @@
-use std::time::Duration;
-
 use serde::{Deserialize, Serialize};
 
 use crate::action::{Action, ActionContext, VAction};
 use crate::actions::Unpenalize;
-use crate::timer::{BehaviorAtZero, RunCondition, SignedDuration, Timer};
+use crate::timer::{BehaviorAtZero, RunCondition, Timer};
 use crate::types::{Penalty, PenaltyCall, Phase, PlayerNumber, Side, State};
 
 /// This struct defines an action to apply a penalty to players.

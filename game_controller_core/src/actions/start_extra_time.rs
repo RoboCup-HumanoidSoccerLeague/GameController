@@ -4,12 +4,11 @@ use crate::action::{Action, ActionContext};
 use crate::timer::{BehaviorAtZero, RunCondition, Timer};
 use crate::types::{Penalty, Phase, State};
 
-/// This struct defines an action that switches from the end of the first half to the beginning of
-/// the second half, including the switch of sides.
+/// This struct defines an action that starts extra time.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct SwitchHalf;
+pub struct StartExtraTime;
 
-impl Action for SwitchHalf {
+impl Action for StartExtraTime {
     fn execute(&self, c: &mut ActionContext) {
         // Unpenalize all players that are not substitutes. Maybe picked up players should stay
         // picked up, but the old GameController unpenalized them, too.
@@ -20,26 +19,21 @@ impl Action for SwitchHalf {
                 .for_each(|player| {
                     player.penalty = Penalty::NoPenalty;
                     player.penalty_timer = Timer::Stopped;
-                })
+                });
+
+            // TODO: increase message budget
+            if !team.illegal_communication {
+                // team.message_budget += 6000;
+            }
         });
 
-        c.game.sides = -c.params.game.side_mapping;
-        c.game.phase = match c.game.phase {
-            Phase::FirstHalf => Phase::SecondHalf,
-            Phase::FirstExtraHalf => Phase::SecondExtraHalf,
-            _ => panic!("only possible in a first half"),
-        };
+        c.game.sides = c.params.game.side_mapping;
+        c.game.phase = Phase::FirstExtraHalf;
         c.game.state = State::Initial;
-        c.game.kicking_side = Some(-c.params.game.kick_off_side);
+        c.game.kicking_side = Some(c.params.game.kick_off_side);
 
         c.game.primary_timer = Timer::Started {
-            remaining: (if c.game.phase == Phase::SecondHalf {
-                c.params.competition.half_duration
-            } else {
-                c.params.competition.extra_half_duration
-            })
-            .try_into()
-            .unwrap(),
+            remaining: c.params.competition.extra_half_duration.try_into().unwrap(),
             run_condition: RunCondition::MainTimer,
             behavior_at_zero: BehaviorAtZero::Overflow,
         };
@@ -47,7 +41,8 @@ impl Action for SwitchHalf {
     }
 
     fn is_legal(&self, c: &ActionContext) -> bool {
-        (c.game.phase == Phase::FirstHalf || c.game.phase == Phase::FirstExtraHalf)
+        c.game.phase == Phase::SecondHalf
             && c.game.state == State::Finished
+            && !c.params.competition.extra_half_duration.is_zero()
     }
 }

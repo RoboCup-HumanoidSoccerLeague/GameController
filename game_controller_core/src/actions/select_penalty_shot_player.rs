@@ -36,7 +36,7 @@ impl Action for SelectPenaltyShotPlayer {
                     },
                 )
             })
-            .find(|player| player.penalty != Penalty::Substitute)
+            .find(|player| !matches!(player.penalty, Penalty::SentOff | Penalty::Substitute))
             .unwrap_or(Player {
                 penalty: Penalty::NoPenalty,
                 penalty_timer: Timer::Stopped,

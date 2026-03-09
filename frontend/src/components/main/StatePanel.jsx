@@ -162,9 +162,9 @@ const StatePanel = ({ game, params, legalGameActions }) => {
     game.phase === "secondHalf" && game.state === "finished" && hasExtraTime ? (
       <div className="col-span-4">
         <ActionButton
-          action={{ type: "switchHalf", args: null }}
+          action={{ type: "startExtraTime", args: null }}
           label="Extra Time"
-          legal={legalGameActions[actions.SWITCH_HALF]}
+          legal={legalGameActions[actions.START_EXTRA_TIME]}
         />
       </div>
     ) : (

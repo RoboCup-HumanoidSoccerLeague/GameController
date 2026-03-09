@@ -38,6 +38,7 @@ trait_enum! {
         Goal,
         Penalize,
         SelectPenaltyShotPlayer,
+        StartExtraTime,
         StartPenaltyShootout,
         StartSetPlay,
         StopPlay,

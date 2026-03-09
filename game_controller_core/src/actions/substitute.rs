@@ -25,7 +25,6 @@ impl Action for Substitute {
         {
             // Players that are substituted while not being penalized must still wait as if they
             // were picked-up.
-            assert!(!c.params.competition.penalties[Penalty::PickedUp].incremental);
             c.game.teams[self.side][self.player_in].penalty = Penalty::PickedUp;
             c.game.teams[self.side][self.player_in].penalty_timer = Timer::Started {
                 remaining: c.params.competition.penalties[Penalty::PickedUp]
@@ -61,7 +60,6 @@ impl Action for Substitute {
         c.game.phase != Phase::PenaltyShootout
             && self.player_in != self.player_out
             && c.game.teams[self.side][self.player_in].penalty == Penalty::Substitute
-            && c.game.teams[self.side][self.player_out].penalty != Penalty::Substitute
-            && c.game.teams[self.side][self.player_out].penalty != Penalty::SentOff
+            && !matches!(c.game.teams[self.side][self.player_out].penalty, Penalty::SentOff | Penalty::Substitute)
     }
 }

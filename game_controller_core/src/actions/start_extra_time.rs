@@ -21,9 +21,8 @@ impl Action for StartExtraTime {
                     player.penalty_timer = Timer::Stopped;
                 });
 
-            // TODO: increase message budget
             if !team.illegal_communication {
-                // team.message_budget += 6000;
+                team.message_budget += 6000; // TODO
             }
         });
 

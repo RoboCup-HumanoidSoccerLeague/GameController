@@ -1,9 +1,9 @@
-use std::mem::{replace, swap};
+use std::mem::replace;
 
 use serde::{Deserialize, Serialize};
 
 use crate::action::{Action, ActionContext};
-use crate::timer::{BehaviorAtZero, RunCondition, Timer};
+use crate::timer::{BehaviorAtZero, RunCondition, SignedDuration, Timer};
 use crate::types::{Penalty, Phase, PlayerNumber, Side, State};
 
 /// This struct defines an action to substitute players.
@@ -27,10 +27,7 @@ impl Action for Substitute {
             // were picked-up.
             c.game.teams[self.side][self.player_in].penalty = Penalty::PickedUp;
             c.game.teams[self.side][self.player_in].penalty_timer = Timer::Started {
-                remaining: c.params.competition.penalties[Penalty::PickedUp]
-                    .duration
-                    .try_into()
-                    .unwrap(),
+                remaining: SignedDuration::ZERO,
                 run_condition: RunCondition::ReadyOrPlaying,
                 behavior_at_zero: BehaviorAtZero::Clip,
             };
@@ -43,6 +40,8 @@ impl Action for Substitute {
                 &mut c.game.teams[self.side][self.player_out].penalty_timer,
                 Timer::Stopped,
             );
+            c.game.teams[self.side][self.player_in].penalty_increment =
+                c.game.teams[self.side][self.player_out].penalty_increment;
         }
         // TODO
         /*
@@ -50,13 +49,14 @@ impl Action for Substitute {
         swap(&mut c.game.teams[self.side][self.player_in].cautions, &mut c.game.teams[self.side][self.player_out].cautions);
         */
         c.game.teams[self.side][self.player_out].penalty = Penalty::Substitute;
+        c.game.teams[self.side][self.player_out].penalty_increment = 0;
         if c.game.teams[self.side].goalkeeper == Some(self.player_out) {
             c.game.teams[self.side].goalkeeper = Some(self.player_in);
         }
     }
 
     fn is_legal(&self, c: &ActionContext) -> bool {
-        // TODO: only during stoppages in play
+        // TODO: only during stoppages in play, but leave it as is for German Open
         c.game.phase != Phase::PenaltyShootout
             && self.player_in != self.player_out
             && c.game.teams[self.side][self.player_in].penalty == Penalty::Substitute

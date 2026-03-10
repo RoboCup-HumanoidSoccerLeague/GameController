@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::action::{Action, ActionContext};
 use crate::timer::{BehaviorAtZero, RunCondition, Timer};
-use crate::types::{Penalty, PlayerNumber, Side, State};
+use crate::types::{Penalty, PlayerNumber, Side};
 
 /// This struct defines an action to unpenalize players.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]

@@ -193,12 +193,17 @@ Depending on the game state, the new player gets a penalty or inherits the penal
 The goalkeeper property is transferred to the substitute, i.e. when the goalkeeper is substituted, the substitute is expected to wear a goalkeeper jersey and inherits the privileges of the goalkeeper.
 
 This feature must also be used before the start of a half in order to match the set of players in the GameController to the players that are actually on the field.
-If a team wants to play with a goalkeeper with a number from 2-7 (or 2-5 in the Challenge Shield), this must be done using three substitutions (e.g. if a team wants to play with players 1-7, but have the 3 be the goalkeeper, it must substitute 8 for 1, 1 for 3, 3 for 8).
+If a team wants to play with a goalkeeper with a number from 2-7 (or 2-3, 2-4, 2-5, depending on the division), this must be done using three substitutions (e.g. if a team wants to play with players 1-7, but have the 3 be the goalkeeper, it must substitute 8 for 1, 1 for 3, 3 for 8).
 
-#### Penalty Shoot-out
+#### Extra Time / Penalty Shoot-out
 
-A penalty shoot-out can only be started after two halves have been played and the score is equal.
-It is only allowed to switch to the next shot as long as the result of the game is not clear yet.
+Extra time can be started after two halves have been played and the score is equal.
+The message budget is increased.
+Extra time can be skipped by removing the `extraHalfDuration` parameter from the competition configuration.
+
+If the score is still equal after extra time (or regular time, if extra time has been disabled), a penalty shoot-out can be started.
+First, the goal that is used must be selected.
+Then (in the Initial state), a timeout can be taken (this is not possible in the Finished state before).
 
 The Playing state can be entered once players on both sides are selected.
 This is done by clicking the "Select" button (in place of the "Substitute" button).

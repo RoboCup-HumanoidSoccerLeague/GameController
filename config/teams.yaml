@@ -44,8 +44,8 @@
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
 - name: HULKs
   number: 24
-  fieldPlayerColors: [red, blue, yellow, black, white, green, orange, purple, brown, gray]
-  goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
+  fieldPlayerColors: [blue, red, green]
+  goalkeeperColors: [blue, red, green]
 - name: R-ZWEI KICKERS
   number: 50
   fieldPlayerColors: [red, blue, yellow, black, white, green, orange, purple, brown, gray]

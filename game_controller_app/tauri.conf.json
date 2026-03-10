@@ -48,5 +48,5 @@
   "identifier": "org.robocup.hsl.game-controller",
   "mainBinaryName": "GameController",
   "productName": "GameController",
-  "version": "6.0.0-dev"
+  "version": "6.0.0"
 }

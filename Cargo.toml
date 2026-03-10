@@ -39,7 +39,7 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/RoboCup-HumanoidSoccerLeague/GameController"
 rust-version = "1.82"
-version = "6.0.0-dev"
+version = "6.0.0"
 
 [profile.release-dist]
 inherits = "release"

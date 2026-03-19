@@ -77,6 +77,7 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
             if let Some(last) = last_state {
                 if last.phase != Phase::PenaltyShootout
                     && matches!(last.state, State::Ready | State::Playing | State::Set)
+                    && !last.stopped
                 {
                     let dt = entry.timestamp - last_timestamp;
                     for side in [Side::Home, Side::Away] {
@@ -153,32 +154,35 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
     }
     for side in [Side::Home, Side::Away] {
         println!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             params.game.teams[side].number,
             params.competition.players_per_team,
             statistics[side].goals,
             statistics[side].timeouts,
-            statistics[side].penalties[PenaltyCall::RequestForPickUp],
             statistics[side].penalties[PenaltyCall::IllegalPosition],
-            statistics[side].penalties[PenaltyCall::MotionInStandby],
             statistics[side].penalties[PenaltyCall::MotionInSet],
-            statistics[side].penalties[PenaltyCall::FallenInactive],
             statistics[side].penalties[PenaltyCall::LocalGameStuck],
+            statistics[side].penalties[PenaltyCall::IncapableRobot],
+            statistics[side].penalties[PenaltyCall::RequestForPickUp],
             statistics[side].penalties[PenaltyCall::BallHolding],
-            statistics[side].penalties[PenaltyCall::PlayerStance],
-            statistics[side].penalties[PenaltyCall::Pushing],
-            statistics[side].penalties[PenaltyCall::PlayingWithArmsHands],
             statistics[side].penalties[PenaltyCall::LeavingTheField],
-            statistics[side].set_plays_against[SetPlay::KickIn],
+            statistics[side].penalties[PenaltyCall::PlayingWithArmsHands],
+            statistics[side].penalties[PenaltyCall::Pushing],
+            statistics[side].penalties[PenaltyCall::Warn],
+            statistics[side].penalties[PenaltyCall::Caution],
+            statistics[side].penalties[PenaltyCall::SendOff],
+            statistics[side].set_plays_against[SetPlay::DirectFreeKick],
+            statistics[side].set_plays_against[SetPlay::IndirectFreeKick],
+            statistics[side].set_plays_against[SetPlay::PenaltyKick],
+            statistics[side].set_plays_against[SetPlay::ThrowIn],
             statistics[side].set_plays_against[SetPlay::GoalKick],
             statistics[side].set_plays_against[SetPlay::CornerKick],
-            statistics[side].set_plays_against[SetPlay::PushingFreeKick],
-            statistics[side].set_plays_against[SetPlay::PenaltyKick],
-            statistics[side].set_plays_for[SetPlay::KickIn],
+            statistics[side].set_plays_for[SetPlay::DirectFreeKick],
+            statistics[side].set_plays_for[SetPlay::IndirectFreeKick],
+            statistics[side].set_plays_for[SetPlay::PenaltyKick],
+            statistics[side].set_plays_for[SetPlay::ThrowIn],
             statistics[side].set_plays_for[SetPlay::GoalKick],
             statistics[side].set_plays_for[SetPlay::CornerKick],
-            statistics[side].set_plays_for[SetPlay::PushingFreeKick],
-            statistics[side].set_plays_for[SetPlay::PenaltyKick],
             statistics[side].active_players.as_millis(),
             statistics[side].ready_set_playing.as_millis(),
             statistics[side].playing.as_millis(),
@@ -191,11 +195,11 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
 /// [evaluate] would write.
 pub fn header() {
     println!(
-        "team,players per team,goals,timeouts,request for pickup,illegal position,\
-        motion in standby,motion in set,fallen/inactive,local game stuck,ball holding,\
-        player stance,pushing,playing with arms/hands,leaving the field,kick-in against,\
-        goal kick against,corner kick against,pushing free kick against,penalty kick against,\
-        kick-in for,goal kick for,corner kick for,pushing free kick for,penalty kick for,\
-        active players,ready set playing,playing"
+        "team,players per team,goals,timeouts,illegal position,motion in set,local game stuck,\
+        incapable robot,request for pick-up,ball holding,leaving the field,\
+        playing with arms/hands,pushing,warn,caution,send off,direct free kick against,\
+        indirect free kick against,penalty kick against,throw-in against,goal kick against,\
+        corner kick against,direct free kick for,indirect free kick for,penalty kick for,\
+        throw-in for,goal kick for,corner kick for,active players,ready set playing,playing"
     );
 }

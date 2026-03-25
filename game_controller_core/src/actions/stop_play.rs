@@ -6,7 +6,7 @@ use crate::action::{Action, ActionContext};
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct StopPlay {
     /// Whether play should be stopped (false) or resumed (true).
-    resume: bool,
+    pub resume: bool,
 }
 
 impl Action for StopPlay {

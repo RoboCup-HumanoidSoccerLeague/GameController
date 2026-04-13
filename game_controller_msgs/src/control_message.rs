@@ -196,7 +196,7 @@ impl ControlMessage {
                 SetPlay::GoalKick => SET_PLAY_GOAL_KICK,
                 SetPlay::CornerKick => SET_PLAY_CORNER_KICK,
             },
-            first_half: game.phase == Phase::FirstHalf,
+            first_half: matches!(game.phase, Phase::FirstHalf | Phase::FirstExtraHalf),
             kicking_team: game
                 .kicking_side
                 .map_or(KICKING_TEAM_NONE, |side| params.game.teams[side].number),

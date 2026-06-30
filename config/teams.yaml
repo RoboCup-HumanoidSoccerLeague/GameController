@@ -44,8 +44,8 @@
   goalkeeperColors: [blue, yellow, black, white, green, orange, purple, brown, gray, red]
 - name: Rhoban
   number: 11
-  fieldPlayerColors: [yellow, green]
-  goalkeeperColors: [yellow, green]
+  fieldPlayerColors: [red, blue]
+  goalkeeperColors: [red, blue, yellow, green]
 - name: Ruhrbot Devils
   number: 12
   fieldPlayerColors: [yellow, black, white]

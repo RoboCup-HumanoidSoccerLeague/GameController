@@ -31,7 +31,7 @@ impl Action for AddAdditionalTime {
     }
 
     fn is_legal(&self, c: &ActionContext) -> bool {
-        c.game.state != State::Playing
+        !matches!(c.game.state, State::Initial | State::Finished)
             && matches!(c.game.primary_timer, Timer::Started { .. })
             && match c.game.phase {
                 Phase::FirstHalf | Phase::SecondHalf => Some(c.params.competition.half_duration),

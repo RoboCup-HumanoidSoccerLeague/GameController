@@ -379,7 +379,7 @@ pub async fn start_runtime(
             .find(|t| team.number == t.number)
             .unwrap()
             .name
-            .replace(' ', "-")
+            .replace([' ', '<', '>', ':', '"', '/', '\\', '|', '?', '*', '_'], "-")
     });
     let date_time = OffsetDateTime::now_local().unwrap_or_else(|_| OffsetDateTime::now_utc());
     create_dir_all(log_directory)

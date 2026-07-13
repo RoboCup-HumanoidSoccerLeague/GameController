@@ -21,7 +21,9 @@ use game_controller_msgs::StatusMessage;
 #[derive(Default)]
 pub struct Statistics {
     /// The number of goals a team has scored.
-    goals: u32,
+    goals_for: u32,
+    /// The number of goals a team has conceded.
+    goals_against: u32,
     /// The number of timeouts a team has taken.
     timeouts: u32,
     /// The number of penalties a team has been called for.
@@ -65,7 +67,10 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
             if let VAction::Undo(Undo { states }) = action.action {
                 let mut i = 0;
                 while i < states {
-                    if actions.pop().unwrap().1.source == ActionSource::User {
+                    if actions.pop().is_some_and(|e| {
+                        e.1.source == ActionSource::User
+                            && !matches!(e.1.action, VAction::StopPlay(_))
+                    }) {
                         i += 1;
                     }
                 }
@@ -129,7 +134,8 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
         match action.action {
             VAction::Goal(Goal { side }) => {
                 if !game.is_some_and(|game| game.teams[side].illegal_communication) {
-                    statistics[side].goals += 1;
+                    statistics[side].goals_for += 1;
+                    statistics[-side].goals_against += 1;
                 }
             }
             VAction::Penalize(Penalize {
@@ -155,10 +161,11 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
     }
     for side in [Side::Home, Side::Away] {
         println!(
-            "{},{:?},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{:?},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             params.game.teams[side].number,
             params.competition.division,
-            statistics[side].goals,
+            statistics[side].goals_for,
+            statistics[side].goals_against,
             statistics[side].timeouts,
             statistics[side].penalties[PenaltyCall::IllegalPosition],
             statistics[side].penalties[PenaltyCall::MotionInSet],
@@ -196,7 +203,7 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
 /// [evaluate] would write.
 pub fn header() {
     println!(
-        "team,division,goals,timeouts,illegal position,motion in set,motion in stop,\
+        "team,division,goal for,goal against,timeout,illegal position,motion in set,motion in stop,\
         local game stuck,incapable robot,request for pick-up,ball holding,leaving the field,\
         playing with arms/hands,pushing,caution,send off,direct free kick against,\
         indirect free kick against,penalty kick against,throw-in against,goal kick against,\

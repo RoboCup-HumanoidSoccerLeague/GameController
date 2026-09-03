@@ -15,11 +15,16 @@ pub struct Goal {
 impl Action for Goal {
     fn execute(&self, c: &mut ActionContext) {
         // Mercy rule: At a certain goal difference, the game is finished.
-        let mercy_rule = c.game.phase != Phase::PenaltyShootout
-            && !c.game.teams[self.side].illegal_communication
-            && (c.game.teams[self.side].score + 1)
-                >= c.game.teams[-self.side].score
-                    + c.params.competition.mercy_rule_score_difference;
+        let mercy_rule = c
+            .params
+            .competition
+            .mercy_rule_score_difference
+            .is_some_and(|mercy_rule_score_difference| {
+                c.game.phase != Phase::PenaltyShootout
+                    && !c.game.teams[self.side].illegal_communication
+                    && (c.game.teams[self.side].score + 1)
+                        >= c.game.teams[-self.side].score + mercy_rule_score_difference
+            });
 
         if !c.game.teams[self.side].illegal_communication {
             c.game.teams[self.side].score += 1;

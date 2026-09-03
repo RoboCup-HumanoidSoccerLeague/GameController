@@ -78,7 +78,7 @@ pub struct CompetitionParams {
     /// The number of team messages by which a team's budget is increased for the extra time.
     pub messages_per_team_per_extra_time: Option<u16>,
     /// The score difference at which a game is finished automatically.
-    pub mercy_rule_score_difference: u8,
+    pub mercy_rule_score_difference: Option<u8>,
     /// The number of regular penalty shots each team takes in a penalty shoot-out.
     pub penalty_shots: u8,
     /// The number of sudden death penalty shots that each team can take before a coin is tossed.

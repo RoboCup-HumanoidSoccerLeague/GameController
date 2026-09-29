@@ -3,6 +3,19 @@ use std::env;
 fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
+    // By default, the library would be identified by its absolute path in the target directory,
+    // so programs linked against an installed copy would not find it. With these names, they
+    // only need an rpath to the installation directory.
+    match env::var("CARGO_CFG_TARGET_OS").as_deref() {
+        Ok("macos") => println!(
+            "cargo:rustc-cdylib-link-arg=-Wl,-install_name,@rpath/libgame_controller_api.dylib"
+        ),
+        Ok("linux") => {
+            println!("cargo:rustc-cdylib-link-arg=-Wl,-soname,libgame_controller_api.so")
+        }
+        _ => {}
+    }
+
     let mut config = cbindgen::Config {
         after_includes: Some("namespace RoboCup { struct VAction; }".to_string()),
         sys_includes: vec!["cstdint".to_string()],

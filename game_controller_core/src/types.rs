@@ -354,6 +354,11 @@ impl PlayerNumber {
         assert!((Self::MIN..=Self::MAX).contains(&number));
         Self(number)
     }
+
+    /// This function returns an iterator over all player numbers.
+    pub fn all() -> impl Iterator<Item = Self> {
+        (Self::MIN..=Self::MAX).map(Self::new)
+    }
 }
 
 impl From<PlayerNumber> for u8 {

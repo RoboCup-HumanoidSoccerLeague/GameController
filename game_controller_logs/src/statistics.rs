@@ -89,14 +89,12 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
                         let active_players = last.teams[side]
                             .players
                             .iter()
-                            .zip(PlayerNumber::MIN..=PlayerNumber::MAX)
+                            .zip(PlayerNumber::all())
                             .filter(|(player, number)| {
                                 player.penalty == Penalty::NoPenalty
-                                    && last_aliveness
-                                        .get(&(side, PlayerNumber::new(*number)))
-                                        .is_some_and(|t| {
-                                            *t + Duration::from_secs(4) >= last_stopped_timestamp
-                                        })
+                                    && last_aliveness.get(&(side, *number)).is_some_and(|t| {
+                                        *t + Duration::from_secs(4) >= last_stopped_timestamp
+                                    })
                             })
                             .count() as u32;
                         statistics[side].active_players += dt * active_players;

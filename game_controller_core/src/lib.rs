@@ -67,10 +67,10 @@ impl GameController {
                 illegal_communication: false,
                 penalty_shot: 0,
                 penalty_shot_mask: 0,
-                players: (PlayerNumber::MIN..=PlayerNumber::MAX)
+                players: PlayerNumber::all()
                     .map(|player| Player {
                         // By default, the higher-numbered players are substitutes.
-                        penalty: if player <= params.competition.players_per_team {
+                        penalty: if u8::from(player) <= params.competition.players_per_team {
                             Penalty::NoPenalty
                         } else {
                             Penalty::Substitute

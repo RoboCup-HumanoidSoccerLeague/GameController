@@ -15,6 +15,8 @@ use game_controller_runtime::{
     start_runtime, RuntimeState,
 };
 
+use crate::show_fatal_error;
+
 /// This struct is used as state so that the [launch] function can communicate to
 /// [sync_with_backend] that the full [RuntimeState] is managed now.
 struct SyncState(Arc<Notify>);
@@ -80,8 +82,9 @@ async fn launch(settings: LaunchSettings, window: WebviewWindow, app: AppHandle)
             app.manage(runtime_state);
         }
         Err(error) => {
-            eprintln!("{error:?}");
-            app.exit(1);
+            show_fatal_error(&app, &error);
+            // The UI must not be notified because there is no RuntimeState that it could use.
+            return;
         }
     }
 

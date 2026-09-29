@@ -7,8 +7,12 @@
 
 use std::env::current_exe;
 
+use anyhow::Error;
 use clap::Parser;
-use tauri::{async_runtime, generate_context, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    async_runtime, generate_context, AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+};
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 use game_controller_runtime::{
     cli::Args, launch::make_launch_data, shutdown_runtime, RuntimeState,
@@ -17,6 +21,18 @@ use game_controller_runtime::{
 mod handlers;
 
 use handlers::get_invoke_handler;
+
+/// This function shows an error to the user and exits the app when the user dismisses it. The
+/// error is also printed to stderr for users who started the app from a terminal.
+pub fn show_fatal_error(app: &AppHandle, error: &Error) {
+    eprintln!("{error:?}");
+    let app = app.clone();
+    app.dialog()
+        .message(format!("{error:#}"))
+        .title("GameController")
+        .kind(MessageDialogKind::Error)
+        .show(move |_| app.exit(1));
+}
 
 /// This function runs the tauri app. It first parses command line arguments and displays a
 /// launcher in which the user can configure the settings for the game. When the user is done with
@@ -35,6 +51,7 @@ fn main() {
     async_runtime::set(runtime.handle().clone());
 
     let app = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let config_directory = current_exe()?
                 .parent()
@@ -47,8 +64,9 @@ fn main() {
                     app.manage(launch_data);
                 }
                 Err(error) => {
-                    eprintln!("{error:?}");
-                    app.handle().exit(1);
+                    // The launcher window is not created because it needs the launch data.
+                    show_fatal_error(app.handle(), &error);
+                    return Ok(());
                 }
             };
 

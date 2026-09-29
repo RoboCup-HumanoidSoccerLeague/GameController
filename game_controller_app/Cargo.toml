@@ -17,6 +17,7 @@ clap = { workspace = true }
 game_controller_core = { workspace = true }
 game_controller_runtime = { workspace = true }
 tauri = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
 tokio = { workspace = true }
 
 [features]

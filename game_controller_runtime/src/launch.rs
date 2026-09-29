@@ -201,6 +201,19 @@ fn get_network_interfaces() -> Result<Vec<NetworkInterface>> {
     Ok(result)
 }
 
+/// This function returns an item that occurs more than once in the given items, or [None] if all
+/// items are distinct.
+fn find_duplicate<T: PartialEq>(items: impl IntoIterator<Item = T>) -> Option<T> {
+    let mut seen = Vec::new();
+    for item in items {
+        if seen.contains(&item) {
+            return Some(item);
+        }
+        seen.push(item);
+    }
+    None
+}
+
 /// This function creates [LaunchData] from a path to the `config` directory and a map of command
 /// line arguments that can initialize certain values of the default settings.
 pub fn make_launch_data(config_directory: &Path, args: Args) -> Result<LaunchData> {
@@ -208,41 +221,80 @@ pub fn make_launch_data(config_directory: &Path, args: Args) -> Result<LaunchDat
     if teams.is_empty() {
         bail!("there are no teams");
     }
-    if teams.iter().any(|team| team.field_player_colors.len() < 2) {
-        bail!("not all teams have at least two field player colors");
+    if let Some(number) = find_duplicate(teams.iter().map(|team| team.number)) {
+        bail!("team number {number} occurs more than once");
     }
-    if teams.iter().any(|team| team.goalkeeper_colors.len() < 2) {
-        bail!("not all teams have at least two goalkeeper colors");
+    if let Some(name) = find_duplicate(teams.iter().map(|team| &team.name)) {
+        bail!("team name {name} occurs more than once");
     }
-    // TODO: check that all team numbers are pairwise distinct
-    // TODO: check that all team colors are pairwise distinct
-    // TODO: check that all team names are pairwise distinct (?)
+    for team in &teams {
+        if team.field_player_colors.len() < 2 {
+            bail!(
+                "team {} ({}) has fewer than two field player colors",
+                team.number,
+                team.name
+            );
+        }
+        if team.goalkeeper_colors.len() < 2 {
+            bail!(
+                "team {} ({}) has fewer than two goalkeeper colors",
+                team.number,
+                team.name
+            );
+        }
+        if let Some(color) = find_duplicate(&team.field_player_colors) {
+            bail!(
+                "team {} ({}) has the field player color {color:?} more than once",
+                team.number,
+                team.name
+            );
+        }
+        if let Some(color) = find_duplicate(&team.goalkeeper_colors) {
+            bail!(
+                "team {} ({}) has the goalkeeper color {color:?} more than once",
+                team.number,
+                team.name
+            );
+        }
+    }
 
     let default_team = teams
         .iter()
         .find(|team| team.number == 0)
-        .context("could not find the default team")?;
+        .context("could not find the default team (number 0)")?;
 
     let competitions = get_competitions(config_directory).context("could not read competitions")?;
     if competitions.is_empty() {
         bail!("there are no competitions");
     }
-    if competitions
-        .iter()
-        .any(|competition| !competition.teams.contains(&default_team.number))
-    {
-        bail!("not all competitions contain the default team");
+    if let Some(name) = find_duplicate(competitions.iter().map(|competition| &competition.name)) {
+        bail!("competition name {name} occurs more than once");
     }
-    if competitions.iter().any(|competition| {
-        competition
+    for competition in &competitions {
+        if !competition.teams.contains(&default_team.number) {
+            bail!(
+                "competition {} does not contain the default team {}",
+                competition.id,
+                default_team.number
+            );
+        }
+        if let Some(number) = competition
             .teams
             .iter()
-            .any(|number| !teams.iter().any(|team| team.number == *number))
-    }) {
-        bail!("some competition references a team number that does not exist");
+            .find(|number| !teams.iter().any(|team| team.number == **number))
+        {
+            bail!(
+                "competition {} contains team {number}, which does not exist",
+                competition.id
+            );
+        }
+        if let Some(number) = find_duplicate(&competition.teams) {
+            bail!(
+                "competition {} contains team {number} more than once",
+                competition.id
+            );
+        }
     }
-    // TODO: check that competition names are pairwise distinct (?)
-    // TODO: check that no competition has duplicate team numbers
 
     let network_interfaces =
         get_network_interfaces().context("could not get network interfaces")?;

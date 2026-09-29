@@ -94,7 +94,7 @@ pub fn evaluate(entries: Vec<TimestampedLogEntry>) -> Result<()> {
                                 player.penalty == Penalty::NoPenalty
                                     && last_aliveness
                                         .get(&(side, PlayerNumber::new(*number)))
-                                        .map_or(false, |t| {
+                                        .is_some_and(|t| {
                                             *t + Duration::from_secs(4) >= last_stopped_timestamp
                                         })
                             })

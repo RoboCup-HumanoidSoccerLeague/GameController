@@ -17,8 +17,12 @@ use game_controller_core::types::{
 use game_controller_core::GameController;
 use game_controller_msgs::ControlMessage;
 
+/// # Safety
+///
+/// `yaml` must point to `len` readable bytes and `team_params` must point to two consecutive
+/// [TeamParams] (home, then away).
 #[no_mangle]
-pub extern "C" fn gc_params_new(
+pub unsafe extern "C" fn gc_params_new(
     yaml: *const u8,
     len: usize,
     team_params: *const TeamParams,
@@ -44,8 +48,11 @@ pub extern "C" fn gc_params_new(
     Box::into_raw(Box::new(params))
 }
 
+/// # Safety
+///
+/// `params` must have been returned by [gc_params_new] and must not be used afterwards.
 #[no_mangle]
-pub extern "C" fn gc_params_destroy(params: *mut Params) {
+pub unsafe extern "C" fn gc_params_destroy(params: *mut Params) {
     drop(unsafe { Box::from_raw(params) });
 }
 
@@ -62,8 +69,12 @@ pub extern "C" fn gc_seek(game_controller: &mut GameController, duration: u64) {
     game_controller.seek(Duration::from_millis(duration));
 }
 
+/// # Safety
+///
+/// `action` must have been returned by one of the `gc_action_*` functions. Ownership is taken, so
+/// it must not be used afterwards.
 #[no_mangle]
-pub extern "C" fn gc_apply(
+pub unsafe extern "C" fn gc_apply(
     game_controller: &mut GameController,
     action: *mut VAction,
     source: ActionSource,
@@ -72,8 +83,11 @@ pub extern "C" fn gc_apply(
     game_controller.apply(*a, source)
 }
 
+/// # Safety
+///
+/// `game_controller` must have been returned by [gc_new] and must not be used afterwards.
 #[no_mangle]
-pub extern "C" fn gc_destroy(game_controller: *mut GameController) {
+pub unsafe extern "C" fn gc_destroy(game_controller: *mut GameController) {
     drop(unsafe { Box::from_raw(game_controller) });
 }
 
@@ -161,8 +175,14 @@ pub extern "C" fn gc_action_start_penalty_shootout(sides: SideMapping) -> *mut V
     )))
 }
 
+/// # Safety
+///
+/// `side` must either be null or point to a valid [Side].
 #[no_mangle]
-pub extern "C" fn gc_action_start_set_play(side: *const Side, set_play: SetPlay) -> *mut VAction {
+pub unsafe extern "C" fn gc_action_start_set_play(
+    side: *const Side,
+    set_play: SetPlay,
+) -> *mut VAction {
     Box::into_raw(Box::new(VAction::StartSetPlay(StartSetPlay {
         side: if side.is_null() {
             None
@@ -200,8 +220,11 @@ pub extern "C" fn gc_action_team_message(side: Side, illegal: bool) -> *mut VAct
     })))
 }
 
+/// # Safety
+///
+/// `side` must either be null or point to a valid [Side].
 #[no_mangle]
-pub extern "C" fn gc_action_timeout(side: *const Side) -> *mut VAction {
+pub unsafe extern "C" fn gc_action_timeout(side: *const Side) -> *mut VAction {
     Box::into_raw(Box::new(VAction::Timeout(Timeout {
         side: if side.is_null() {
             None
@@ -235,8 +258,11 @@ pub extern "C" fn gc_action_wait_for_set_play() -> *mut VAction {
     Box::into_raw(Box::new(VAction::WaitForSetPlay(WaitForSetPlay)))
 }
 
+/// # Safety
+///
+/// `data` must point to a writable buffer of at least `CONTROL_MESSAGE_SIZE` (158) bytes.
 #[no_mangle]
-pub extern "C" fn gc_read(
+pub unsafe extern "C" fn gc_read(
     game_controller: &mut GameController,
     packet_number: u8,
     true_data: bool,

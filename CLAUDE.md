@@ -20,7 +20,7 @@ cargo run [-r] -- -h          # run the app; CLI args override launcher defaults
 cargo clippy --workspace      # rust-analyzer is configured to use clippy
 cargo fmt --all
 cargo tauri dev               # needs `cargo install tauri-cli`; runs webpack dev server on :3000 + backend
-cargo run -p game_controller_logs -- -p <log.yaml> statistics|team-communication
+cargo run -p game_controller_logs -- statistics [--header] <log.yaml>...   # or: team-communication <log.yaml>...
 ```
 
 There is no test suite in this repository. `libclang` is required (bindgen in `game_controller_msgs`). Distributions are built by `dist/mkdist-{linux,macos,windows.ps1} <version> [<target>]` using the `release-dist` profile (CI: `.github/workflows/mkdist.yml`, triggered on `v*` tags).

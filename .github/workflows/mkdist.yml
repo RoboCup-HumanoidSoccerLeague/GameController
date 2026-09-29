@@ -19,7 +19,7 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - if: ${{ matrix.os == 'macos-latest' }}
         run: |
           rustup target add aarch64-apple-darwin x86_64-apple-darwin
@@ -32,7 +32,7 @@ jobs:
       - if: ${{ matrix.os == 'windows-latest' }}
         run: |
           dist/mkdist-windows.ps1 ${{ github.ref_name }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.os }}
           path: |

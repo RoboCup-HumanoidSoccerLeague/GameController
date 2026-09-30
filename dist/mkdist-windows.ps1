@@ -27,7 +27,7 @@ Push-Location $BaseDirectory
 cargo build --target $Target --profile $BuildProfile --package game_controller_app
 Pop-Location
 
-New-Item -ItemType Directory -Path $(Join-Path $ArchiveDirectory "target\release")
+New-Item -ItemType Directory -Path $(Join-Path $ArchiveDirectory "target\release") | Out-Null
 Copy-Item $(Join-Path $BaseDirectory "LICENSE") $ArchiveDirectory
 Copy-Item $(Join-Path $BaseDirectory "README.md") $ArchiveDirectory
 Copy-Item $(Join-Path $BaseDirectory "config") $ArchiveDirectory -Recurse
@@ -35,5 +35,5 @@ Copy-Item $(Join-Path $BaseDirectory "target\$Target\$BuildProfile\game_controll
 New-Item -ItemType File -Path $(Join-Path $ArchiveDirectory "GameController.bat") -Value @"
 @echo off
 start %~dp0\target\release\game_controller_app.exe %*
-"@
+"@ | Out-Null
 Compress-Archive $ArchiveDirectory $Archive -Force

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+destdir=${1}
+target=${2:-"$(rustc -vV | sed -n "s/^host: \(.*\)/\1/p")"}
+profile=release-dist
+
+if [ -z ${destdir} ]; then
+  >&2 echo "usage: ${0} <destdir> [<target>]"
+  exit 1
+fi
+
+basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
+
+case "${target}" in
+  *-apple-darwin) library=libgame_controller_api.dylib ;;
+  *) library=libgame_controller_api.so ;;
+esac
+
+pushd "${basedir}"
+cargo build --target "${target}" --profile "${profile}" --package game_controller_api
+popd
+
+mkdir -p "${destdir}/include"
+mkdir -p "${destdir}/lib"
+mkdir -p "${destdir}/config"
+
+cp "${basedir}/LICENSE" "${destdir}"
+cp "${basedir}/game_controller_api/headers/GameController.h" "${destdir}/include"
+cp "${basedir}/game_controller_msgs/headers/RoboCupGameControlData.h" "${destdir}/include"
+cp "${basedir}/target/${target}/${profile}/${library}" "${destdir}/lib"
+for dir in "${basedir}"/config/*; do
+  [ -f "${dir}/params.yaml" ] || continue
+  cp "${dir}/params.yaml" "${destdir}/config/$(basename "${dir}").yaml"
+done

@@ -209,15 +209,16 @@ async fn event_loop(
                 game_controller.seek(now - last);
                 last = now;
                 match event {
-                    Some(Event::MonitorRequest { host, data, .. }) => {
+                    Some(Event::MonitorRequest { host, data, too_long }) => {
                         game_controller.log_now(LogEntry::MonitorRequest(LoggedMonitorRequest {
                             host,
                             data: data.to_vec(),
                         }));
-                        // Requests are ignore if they come from hosts that have previously sent
-                        // status messages, the monitor request is not ill-formed, or the host is
-                        // already registered as a monitor.
-                        if !players.contains(&host) && MonitorRequest::try_from(data).is_ok()
+                        // Requests are ignored if they come from hosts that have previously sent
+                        // status messages, or if the monitor request is ill-formed.
+                        if !players.contains(&host)
+                            && !too_long
+                            && MonitorRequest::try_from(data).is_ok()
                         {
                             // If the host is already registered as monitor, cancel all tasks
                             // first. This is because the tasks can have crashed in the meantime
@@ -259,7 +260,7 @@ async fn event_loop(
                             monitors.insert(host, monitor_join_set);
                         }
                     },
-                    Some(Event::StatusMessage { host, data, .. }) => {
+                    Some(Event::StatusMessage { host, data, too_long }) => {
                         game_controller.log_now(LogEntry::StatusMessage(LoggedStatusMessage {
                             host,
                             data: data.to_vec(),
@@ -274,7 +275,9 @@ async fn event_loop(
                         // because then the monitor can display this fact. We must ignore errors
                         // here because it is possible that nobody is subscribed at the moment.
                         let _ = status_forward_sender.send((host, data.clone()));
-                        if let Ok(status_message) = StatusMessage::try_from(data) {
+                        if let Some(status_message) =
+                            StatusMessage::try_from(data).ok().filter(|_| !too_long)
+                        {
                             if let Some(side)
                                 = game_controller.params.game.get_side(status_message.team_number)
                             {

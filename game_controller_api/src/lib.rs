@@ -39,6 +39,7 @@ use game_controller_core::types::{
 use game_controller_core::GameController;
 use game_controller_msgs::{ControlMessage, CONTROL_MESSAGE_SIZE};
 
+pub mod autoreferee;
 pub mod error;
 
 use error::{player_number, set_last_error};

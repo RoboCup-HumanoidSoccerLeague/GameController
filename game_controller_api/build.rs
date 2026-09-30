@@ -26,6 +26,7 @@ fn main() {
     config.function.rename_args = cbindgen::RenameRule::CamelCase;
     config.structure.rename_fields = cbindgen::RenameRule::CamelCase;
     config.enumeration.rename_variants = cbindgen::RenameRule::CamelCase;
+    config.macro_expansion.bitflags = true;
 
     cbindgen::Builder::new()
         .with_config(config)

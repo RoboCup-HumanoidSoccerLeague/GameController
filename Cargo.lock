@@ -1086,9 +1086,11 @@ dependencies = [
 name = "game_controller_api"
 version = "7.0.0"
 dependencies = [
+ "bitflags 2.13.2",
  "bytes",
  "cbindgen",
  "enum-map",
+ "game_controller_autoreferee",
  "game_controller_core",
  "game_controller_msgs",
  "serde_yaml",

@@ -267,11 +267,7 @@ pub enum Penalty {
 }
 
 /// This enumerates the possible referee calls for penalties. They mostly correspond to [Penalty],
-/// but there are some calls that map to different penalties in different states
-/// ([PenaltyCall::IllegalPosition]) and there are calls that map to the same penalty but with
-/// different side effects ([PenaltyCall::Foul], [PenaltyCall::PenaltyKick]). At least that used to
-/// be the case in the Standard Platform League. For the Humanoid Soccer League, this may be
-/// redundant.
+/// but at least in the Standard Platform League there were exceptions.
 #[derive(Clone, Copy, Debug, Deserialize, Enum, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[repr(C)]

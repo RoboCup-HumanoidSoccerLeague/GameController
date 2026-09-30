@@ -1,0 +1,14 @@
+[package]
+authors = { workspace = true }
+description = "An automatic referee for simulated games on top of the GameController core"
+edition = { workspace = true }
+license = { workspace = true }
+name = "game_controller_autoreferee"
+repository = { workspace = true }
+rust-version = { workspace = true }
+version = { workspace = true }
+
+[dependencies]
+bitflags = { workspace = true }
+enum-map = { workspace = true }
+game_controller_core = { workspace = true }

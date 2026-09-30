@@ -493,4 +493,6 @@ pub enum ActionSource {
     Timer,
     /// The action was triggered by the user (and should be replayed).
     User,
+    /// The action was trigerred by the automatic referee.
+    Autoreferee,
 }

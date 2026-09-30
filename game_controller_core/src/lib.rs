@@ -96,6 +96,11 @@ impl GameController {
         }
     }
 
+    /// This function returns the overall elapsed time.
+    pub fn get_time(&self) -> Duration {
+        self.time
+    }
+
     /// This function returns the dynamic state of the game. The caller can request if the game
     /// state should be the delayed game state.
     pub fn get_game(&self, delayed: bool) -> &Game {

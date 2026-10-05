@@ -14,6 +14,7 @@ const StatePanel = ({ game, params, legalGameActions }) => {
     const onKeydown = (e) => {
       if (e.key === " ") {
         applyAction({ type: "stopPlay", args: { resume: false } });
+        e.preventDefault();
       }
     };
     document.addEventListener("keydown", onKeydown);

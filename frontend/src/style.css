@@ -5,3 +5,8 @@
 body {
   overflow: hidden;
 }
+
+button:focus,
+select:focus {
+  outline: none;
+}

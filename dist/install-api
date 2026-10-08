@@ -3,7 +3,7 @@
 set -e
 
 destdir=${1}
-target=${2:-"$(rustc -vV | sed -n "s/^host: \(.*\)/\1/p")"}
+target=${2}
 profile=release-dist
 
 if [ -z ${destdir} ]; then
@@ -13,13 +13,27 @@ fi
 
 basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
 
+# Without a target, the library is built for the host, except on macOS, where it is universal.
+universal=false
+if [ -z ${target} ]; then
+  target="$(rustc -vV | sed -n "s/^host: \(.*\)/\1/p")"
+  case "${target}" in
+    *-apple-darwin) universal=true ;;
+  esac
+fi
+
 case "${target}" in
   *-apple-darwin) library=libgame_controller_api.dylib ;;
   *) library=libgame_controller_api.so ;;
 esac
 
 pushd "${basedir}"
-cargo build --target "${target}" --profile "${profile}" --package game_controller_api
+if ${universal}; then
+  cargo build --target aarch64-apple-darwin --profile "${profile}" --package game_controller_api
+  cargo build --target x86_64-apple-darwin --profile "${profile}" --package game_controller_api
+else
+  cargo build --target "${target}" --profile "${profile}" --package game_controller_api
+fi
 popd
 
 mkdir -p "${destdir}/include"
@@ -29,7 +43,11 @@ mkdir -p "${destdir}/config"
 cp "${basedir}/LICENSE" "${destdir}"
 cp "${basedir}/game_controller_api/headers/GameController.h" "${destdir}/include"
 cp "${basedir}/game_controller_msgs/headers/RoboCupGameControlData.h" "${destdir}/include"
-cp "${basedir}/target/${target}/${profile}/${library}" "${destdir}/lib"
+if ${universal}; then
+  lipo -create -output "${destdir}/lib/${library}" "${basedir}/target/aarch64-apple-darwin/${profile}/${library}" "${basedir}/target/x86_64-apple-darwin/${profile}/${library}"
+else
+  cp "${basedir}/target/${target}/${profile}/${library}" "${destdir}/lib"
+fi
 for dir in "${basedir}"/config/*; do
   [ -f "${dir}/params.yaml" ] || continue
   cp "${dir}/params.yaml" "${destdir}/config/$(basename "${dir}").yaml"

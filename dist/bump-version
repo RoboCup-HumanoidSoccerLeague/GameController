@@ -1,0 +1,44 @@
+#!/bin/bash
+
+set -e
+
+version="$(sed -e "s/^v\(.*\)/\1/" <<<${1})"
+
+if ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+  >&2 echo "usage: ${0} <version> (e.g. 7.1.0-rc.1 or 7.1.0)"
+  exit 1
+fi
+
+basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
+cd "${basedir}"
+
+if ! git diff --quiet HEAD --; then
+  >&2 echo "error: there are uncommitted changes"
+  exit 1
+fi
+if git rev-parse --quiet --verify "refs/tags/v${version}" >/dev/null; then
+  >&2 echo "error: tag v${version} already exists"
+  exit 1
+fi
+
+# The version is defined in the root workspace. (The app's Tauri configuration has no version of its
+# own, so the one from Cargo.toml is used.)
+for manifest in Cargo.toml; do
+  if [ "$(grep -c '^version = ' "${manifest}")" != 1 ]; then
+    >&2 echo "error: expected exactly one version line in ${manifest}"
+    exit 1
+  fi
+  sed -e "s/^version = \".*\"$/version = \"${version}\"/" "${manifest}" >"${manifest}.tmp"
+  mv "${manifest}.tmp" "${manifest}"
+  # This only updates the versions of the workspace members in the lock file.
+  cargo update --workspace --manifest-path "${manifest}"
+done
+
+git commit --all --message "Version ${version}"
+git tag --annotate "v${version}" --message "Version ${version}"
+
+branch="$(git branch --show-current)"
+remote="$(git config --get "branch.${branch}.remote" || echo "<remote>")"
+echo
+echo "Created the commit and the tag v${version}. To build and draft the release, push both:"
+echo "  git push ${remote} ${branch} v${version}"

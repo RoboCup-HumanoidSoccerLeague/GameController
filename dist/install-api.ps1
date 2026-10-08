@@ -14,6 +14,9 @@ $BaseDirectory = Split-Path $PSScriptRoot -Parent
 
 Push-Location $BaseDirectory
 cargo build --target $Target --profile $BuildProfile --package game_controller_api
+if ($LASTEXITCODE -ne 0) {
+    throw "cargo build failed"
+}
 Pop-Location
 
 $IncludeDirectory = Join-Path $DestinationDirectory "include"

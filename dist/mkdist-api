@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -e
+
+version="$(sed -e "s/^v\(.*\)/\1/" <<<${1})"
+target=${2}
+
+if [ -z ${version} ]; then
+  >&2 echo "usage: ${0} <version> [<target>]"
+  exit 1
+fi
+
+# The archive is named after the target. Without a target, install-api builds for the host, except
+# on macOS, where the library is universal.
+label=${target}
+if [ -z ${label} ]; then
+  label="$(rustc -vV | sed -n "s/^host: \(.*\)/\1/p")"
+  case "${label}" in
+    *-apple-darwin) label=universal-apple-darwin ;;
+  esac
+fi
+
+basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
+archivedir="${basedir}/dist/game_controller_api-${version}-${label}"
+archive="${basedir}/dist/game_controller_api-${version}-${label}.tar.bz2"
+
+rm -rf "${archivedir}"
+
+"${basedir}/dist/install-api" "${archivedir}" ${target}
+
+tar -cjf "${archive}" -C "$(dirname "${archivedir}")" $(basename "${archivedir}")

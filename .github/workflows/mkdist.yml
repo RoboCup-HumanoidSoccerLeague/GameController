@@ -10,12 +10,14 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  app:
     strategy:
+      fail-fast: false
       matrix:
         os:
           - macos-latest
           - ubuntu-22.04
+          - ubuntu-22.04-arm
           - windows-latest
     runs-on: ${{ matrix.os }}
     steps:
@@ -23,22 +25,78 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - if: ${{ matrix.os == 'macos-latest' }}
+      - if: ${{ startsWith(matrix.os, 'macos') }}
         run: |
           rustup target add aarch64-apple-darwin x86_64-apple-darwin
-          dist/mkdist-macos ${{ github.ref_name }}
-      - if: ${{ matrix.os == 'ubuntu-22.04' }}
+          dist/mkdist-macos "${GITHUB_REF_NAME}"
+      - if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libayatana-appindicator3-dev libclang-dev librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev
-          dist/mkdist-linux ${{ github.ref_name }}
-      - if: ${{ matrix.os == 'windows-latest' }}
+          dist/mkdist-linux "${GITHUB_REF_NAME}"
+      - if: ${{ startsWith(matrix.os, 'windows') }}
         run: |
-          dist/mkdist-windows.ps1 ${{ github.ref_name }}
+          dist/mkdist-windows.ps1 "$env:GITHUB_REF_NAME"
       - uses: actions/upload-artifact@v7
         with:
-          name: dist-${{ matrix.os }}
+          name: app-${{ matrix.os }}
           path: |
             dist/*.dmg
             dist/*.tar.bz2
             dist/*.zip
+  api:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-22.04
+          - ubuntu-22.04-arm
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - if: ${{ startsWith(matrix.os, 'macos') }}
+        run: |
+          rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          dist/mkdist-api "${GITHUB_REF_NAME}"
+      - if: ${{ startsWith(matrix.os, 'ubuntu') }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libclang-dev
+          dist/mkdist-api "${GITHUB_REF_NAME}"
+      - if: ${{ startsWith(matrix.os, 'windows') }}
+        run: |
+          dist/mkdist-api.ps1 "$env:GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: api-${{ matrix.os }}
+          path: |
+            dist/*.tar.bz2
+            dist/*.zip
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    needs: [app, api]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The release notes need the history and the previous tags.
+          fetch-depth: 0
+      - name: Check that the tag matches the version in Cargo.toml
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml)"
+      - uses: actions/download-artifact@v7
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dist/release-notes "${GITHUB_REF_NAME}" >notes.md
+          gh release create "${GITHUB_REF_NAME}" assets/* --draft --verify-tag \
+            --title "${GITHUB_REF_NAME}" --notes-file notes.md \
+            $([[ "${GITHUB_REF_NAME}" == *-* ]] && echo --prerelease)

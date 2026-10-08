@@ -1,4 +1,8 @@
 .*.swp
 /game_controller_api/headers
+/dist/*.dmg
+/dist/*.tar.bz2
+/dist/*.zip
+/dist/*/
 /logs
 /target

@@ -23,7 +23,11 @@ cargo tauri dev               # needs `cargo install tauri-cli`; runs the Vite d
 cargo run -p game_controller_logs -- statistics [--header] <log.yaml>...   # or: team-communication <log.yaml>...
 ```
 
-There is no test suite in this repository. `libclang` is required (bindgen in `game_controller_msgs`). Distributions are built by `dist/mkdist-{linux,macos,windows.ps1} <version> [<target>]` using the `release-dist` profile (CI: `.github/workflows/mkdist.yml`, triggered on `v*` tags).
+`dist/install-api[.ps1] <destdir> [<target>]` builds the C API (`game_controller_api`) and installs the shared library, headers and competition params into `<destdir>` (on macOS without a target, the library is universal).
+
+There is no test suite in this repository. `libclang` is required (bindgen in `game_controller_msgs`). Distributions are built into `dist/` by `dist/mkdist-{linux,macos,windows.ps1} <version> [<target>]` (app) and `dist/mkdist-api[.ps1] <version> [<target>]` (C API archive, via `install-api`) using the `release-dist` profile (CI: `.github/workflows/mkdist.yml`, jobs `app` and `api` on the same runners, triggered on `v*` tags; on tags, the `release` job creates a draft GitHub release with all archives and notes from `dist/release-notes`).
+
+Releases are described in `RELEASING.md`: SemVer with `-rc.N` release candidates; `dist/bump-version <version>` sets the version in `Cargo.toml` (the only place it is defined; `tauri.conf.json` has none), updates the lock file, commits "Version X" and creates an annotated tag.
 
 The frontend can be opened standalone in a browser (`npm run dev`): `frontend/src/api.js` returns mock data when `window.__TAURI_INTERNALS__` is absent.
 
@@ -36,6 +40,7 @@ Crates, from the bottom up:
 - **game_controller_net** — tokio UDP senders/receivers for each channel; receivers push `Event`s into an mpsc channel.
 - **game_controller_runtime** — glues core + net: `start_runtime` spawns network tasks and the `event_loop`, which sends `UiState` to the UI, publishes the (delayed) game to the control message sender, computes the next deadline (timer expiration / whole-second wrap / connection status change), then awaits a deadline, network event, UI action, or shutdown. Also handles launch data from `config/`, CLI (`cli.rs`), and YAML file logging to `logs/`.
 - **game_controller_app** — Tauri main binary. `handlers.rs` exposes the commands `get_launch_data`, `launch`, `sync_with_backend`, `apply_action`, `declare_actions`; state is pushed to the UI via the `state` event. `config/` and `logs/` are resolved as `<exe>/../../`, which is why the binary must live in `target/<profile>/` (dist archives replicate this layout).
+- **game_controller_autoreferee** — automatic referee for simulators on top of the core (pure Rust; `Features` bitflags, `update(gc, world) -> Vec<Command>`).
 - **game_controller_api** — `cdylib` exposing the core as a C ABI (`gc_*` functions); cbindgen writes `headers/GameController.h` (gitignored) at build time.
 - **game_controller_logs** — CLI for analyzing YAML log files.
 

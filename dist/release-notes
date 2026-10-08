@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+tag=${1}
+
+if [ -z ${tag} ]; then
+  >&2 echo "usage: ${0} <tag>"
+  exit 1
+fi
+
+basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
+cd "${basedir}"
+
+version="${tag#v}"
+repository="$(sed -n 's/^repository = "\(.*\)"$/\1/p' Cargo.toml)"
+
+# A release candidate lists the changes since the previous tag, a final release those since the
+# previous final release.
+if [[ "${tag}" == *-* ]]; then
+  previous="$(git describe --tags --abbrev=0 --match "v*" "${tag}^" 2>/dev/null || true)"
+else
+  previous="$(git describe --tags --abbrev=0 --match "v*" --exclude "*-*" "${tag}^" 2>/dev/null || true)"
+fi
+
+cat <<END
+## Downloads
+
+- **GameController:** \`GameController-${version}.dmg\` (macOS, universal), \`GameController-${version}-x86_64-pc-windows-msvc.zip\` (Windows), \`game_controller-${version}-<target>.tar.bz2\` (Linux).
+- **C/C++ API** (e.g. for simulators): \`game_controller_api-${version}-<target>\` contains the shared library, the headers and the competition parameters.
+
+END
+
+if [ -n "${previous}" ]; then
+  echo "## Changes since ${previous}"
+  range="${previous}..${tag}"
+else
+  echo "## Changes"
+  range="${tag}"
+fi
+echo
+git log --no-merges --format="- %s" "${range}" | grep -v "^- Version " || true
+if [ -n "${previous}" ] && [ -n "${repository}" ]; then
+  echo
+  echo "**Full changelog:** ${repository}/compare/${previous}...${tag}"
+fi

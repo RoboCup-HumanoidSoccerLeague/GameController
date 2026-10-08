@@ -20,11 +20,20 @@ if (Test-Path $ArchiveDirectory) {
 
 Push-Location $(Join-Path $BaseDirectory "frontend")
 npm ci
+if ($LASTEXITCODE -ne 0) {
+    throw "npm ci failed"
+}
 npm run build
+if ($LASTEXITCODE -ne 0) {
+    throw "npm run build failed"
+}
 Pop-Location
 
 Push-Location $BaseDirectory
 cargo build --target $Target --profile $BuildProfile --package game_controller_app
+if ($LASTEXITCODE -ne 0) {
+    throw "cargo build failed"
+}
 Pop-Location
 
 New-Item -ItemType Directory -Path $(Join-Path $ArchiveDirectory "target\release") | Out-Null

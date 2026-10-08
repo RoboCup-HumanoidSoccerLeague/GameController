@@ -685,27 +685,30 @@ impl Autoreferee {
                         });
                     }
                 }
-            } else if let (SetPlay::KickOff | SetPlay::PenaltyKick, Some(kicking_side)) =
-                (game.set_play, game.kicking_side)
-            {
-                self.kicking_player = rules::determine_kicking_player(
-                    game,
-                    world,
-                    field,
-                    &compute_margins(game, world, field),
-                    kicking_side,
-                );
-                if game.set_play == SetPlay::PenaltyKick
-                    && features.contains(Features::PENALIZE_ILLEGAL_POSITIONING)
-                {
-                    self.place_penalty_goalkeeper(game, world, -kicking_side, commands);
+            } else if matches!(game.set_play, SetPlay::KickOff | SetPlay::PenaltyKick) {
+                // A kick-off without a kicking side is a dropped ball, which is also taken from
+                // the center mark, but has no kicking player.
+                if let Some(kicking_side) = game.kicking_side {
+                    self.kicking_player = rules::determine_kicking_player(
+                        game,
+                        world,
+                        field,
+                        &compute_margins(game, world, field),
+                        kicking_side,
+                    );
+                    if game.set_play == SetPlay::PenaltyKick
+                        && features.contains(Features::PENALIZE_ILLEGAL_POSITIONING)
+                    {
+                        self.place_penalty_goalkeeper(game, world, -kicking_side, commands);
+                    }
                 }
                 if features.contains(Features::PLACE_BALL) {
-                    let x = if game.set_play == SetPlay::KickOff {
-                        0.0
-                    } else {
-                        side_to_sign(kicking_side, game.sides)
-                            * (field.length * 0.5 - field.penalty_mark_distance)
+                    let x = match (game.set_play, game.kicking_side) {
+                        (SetPlay::PenaltyKick, Some(kicking_side)) => {
+                            side_to_sign(kicking_side, game.sides)
+                                * (field.length * 0.5 - field.penalty_mark_distance)
+                        }
+                        _ => 0.0,
                     };
                     commands.push(Command::PlaceBall {
                         position: [x, 0.0, field.ball_radius],

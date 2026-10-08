@@ -74,6 +74,8 @@ const UndoPanel = ({ undoActions, legalUndoActions }) => {
           action={{ type: "undo", args: { states: index + 1 } }}
           label={index < undoActions.length ? getActionName(undoActions[index]) : "Undo"}
           legal={legal}
+          // The buttons are positional (button i undoes i + 1 states), so the index is their identity.
+          // eslint-disable-next-line @eslint-react/no-array-index-key
           key={index}
         />
       ))}

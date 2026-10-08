@@ -19,7 +19,7 @@ cargo build [-r]              # default member is game_controller_app
 cargo run [-r] -- -h          # run the app; CLI args override launcher defaults
 cargo clippy --workspace      # rust-analyzer is configured to use clippy
 cargo fmt --all
-cargo tauri dev               # needs `cargo install tauri-cli`; runs webpack dev server on :3000 + backend
+cargo tauri dev               # needs `cargo install tauri-cli`; runs the Vite dev server on :3000 + backend
 cargo run -p game_controller_logs -- statistics [--header] <log.yaml>...   # or: team-communication <log.yaml>...
 ```
 

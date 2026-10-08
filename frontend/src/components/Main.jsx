@@ -22,15 +22,15 @@ const Main = () => {
   const [teamNames, setTeamNames] = useState(null);
   const [undoActions, setUndoActions] = useState(null);
 
-  useEffect(() => {
-    if (
-      legalActions != null &&
-      selectedPenaltyCall != null &&
-      !isPenaltyCallLegal(extractPenaltyActions(legalActions), selectedPenaltyCall)
-    ) {
-      setSelectedPenaltyCall(null);
-    }
-  }, [legalActions]);
+  // A selected penalty call that is not legal anymore is deselected. This is derived from props and
+  // state, so it is adjusted while rendering instead of in an effect.
+  if (
+    legalActions != null &&
+    selectedPenaltyCall != null &&
+    !isPenaltyCallLegal(extractPenaltyActions(legalActions), selectedPenaltyCall)
+  ) {
+    setSelectedPenaltyCall(null);
+  }
 
   useEffect(() => {
     const thePromise = (async () => {
@@ -50,8 +50,8 @@ const Main = () => {
           Object.entries(params.game.teams).map(([side, teamParams]) => [
             side,
             teams.find((team) => team.number === teamParams.number).name,
-          ])
-        )
+          ]),
+        ),
       );
       // syncWithBackend must have completed before the next call because declareActions fails if
       // certain things have not been initialized that are only guaranteed to be initialized after

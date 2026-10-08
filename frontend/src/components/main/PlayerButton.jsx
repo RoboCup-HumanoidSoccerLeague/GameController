@@ -70,8 +70,8 @@ const PlayerButton = ({ color, legal, sign, onClick, player }) => {
                 player.penaltyTimer.started
                   ? "tabular-nums"
                   : player.penalty === "noPenalty"
-                  ? "invisible"
-                  : ""
+                    ? "invisible"
+                    : ""
               }
             >
               {player.penaltyTimer.started

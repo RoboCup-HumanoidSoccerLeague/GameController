@@ -60,10 +60,10 @@ const Launcher = ({ setLaunched }) => {
       });
     };
     const thisCompetition = competitions.find(
-      (competition) => competition.id === launchSettings.competition.id
+      (competition) => competition.id === launchSettings.competition.id,
     );
     const teamsInThisCompetition = teams.filter((team) =>
-      thisCompetition.teams.includes(team.number)
+      thisCompetition.teams.includes(team.number),
     );
     return (
       <div className="flex flex-col items-center p-4 gap-2">

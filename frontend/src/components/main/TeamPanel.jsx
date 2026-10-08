@@ -40,7 +40,7 @@ const TeamHeader = ({ color, isKicking, name }) => {
   );
 };
 
-const TeamStats = ({ game, params, side, sign, team }) => {
+const TeamStats = ({ game, side, sign, team }) => {
   return (
     <dl className="flex-1">
       <dt className="sr-only">Score</dt>
@@ -199,18 +199,24 @@ const TeamPanel = ({
                 selectState.type != SELECT_STATE_DEFAULT
                   ? { type: SELECT_STATE_DEFAULT }
                   : game.phase === "penaltyShootout"
-                  ? teamParams.goalkeeperColor === teamParams.fieldPlayerColor
-                    // If the goalkeeper doesn't have a special jersey color, its selection can be
-                    // skipped.
-                    ? { type: SELECT_STATE_PSO_PLAYER, goalkeeper: game.kickingSide != side }
-                    : { type: SELECT_STATE_PSO_COLOR }
-                  : alternative
-                  ? { type: SELECT_STATE_GOALKEEPER }
-                  : { type: SELECT_STATE_PLAYER_OUT }
+                    ? teamParams.goalkeeperColor === teamParams.fieldPlayerColor
+                      ? // If the goalkeeper doesn't have a special jersey color, its selection can be
+                        // skipped.
+                        { type: SELECT_STATE_PSO_PLAYER, goalkeeper: game.kickingSide != side }
+                      : { type: SELECT_STATE_PSO_COLOR }
+                    : alternative
+                      ? { type: SELECT_STATE_GOALKEEPER }
+                      : { type: SELECT_STATE_PLAYER_OUT },
               );
             }}
             active={selectState.type != SELECT_STATE_DEFAULT}
-            label={game.phase === "penaltyShootout" || alternative || selectState.type === SELECT_STATE_GOALKEEPER ? "Select" : "Substitute"}
+            label={
+              game.phase === "penaltyShootout" ||
+              alternative ||
+              selectState.type === SELECT_STATE_GOALKEEPER
+                ? "Select"
+                : "Substitute"
+            }
             legal={true}
           />
         </div>
@@ -269,7 +275,7 @@ const TeamPanel = ({
           />
         </div>
         <div className={`${innerColumn} row-span-2`}>
-          <TeamStats game={game} params={params} side={side} sign={sign} team={team} />
+          <TeamStats game={game} side={side} sign={sign} team={team} />
         </div>
         <div className={innerColumn}>
           <FreeKickButton
@@ -318,8 +324,8 @@ const TeamPanel = ({
                 selectState.type === SELECT_STATE_PSO_PLAYER
                   ? () => true
                   : selectState.type === SELECT_STATE_PLAYER_IN
-                  ? (player) => player.penalty === "substitute"
-                  : (player) => player.penalty != "substitute"
+                    ? (player) => player.penalty === "substitute"
+                    : (player) => player.penalty != "substitute",
               )
               .map((player) => (
                 <PlayerButton
@@ -342,7 +348,7 @@ const TeamPanel = ({
                       side,
                       player.number,
                       selectedPenaltyCall,
-                      alternative
+                      alternative,
                     )
                   }
                   sign={sign}

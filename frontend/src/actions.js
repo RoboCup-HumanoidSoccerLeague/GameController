@@ -79,7 +79,7 @@ export const getActions = () => {
       { type: "startSetPlay", args: { side: side, setPlay: "penaltyKick" } },
       { type: "startSetPlay", args: { side: side, setPlay: "throwIn" } },
       { type: "startSetPlay", args: { side: side, setPlay: "goalKick" } },
-      { type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } }
+      { type: "startSetPlay", args: { side: side, setPlay: "cornerKick" } },
     );
   }
   actions.push({ type: "switchHalf", args: null });
@@ -126,7 +126,7 @@ export const extractTeamActions = (legalActions, side) => {
     ? legalActions.slice(TEAM_ACTION_BASE, TEAM_ACTION_BASE + NUM_OF_TEAM_ACTIONS)
     : legalActions.slice(
         TEAM_ACTION_BASE + NUM_OF_TEAM_ACTIONS,
-        TEAM_ACTION_BASE + NUM_OF_TEAMS * NUM_OF_TEAM_ACTIONS
+        TEAM_ACTION_BASE + NUM_OF_TEAMS * NUM_OF_TEAM_ACTIONS,
       );
 };
 
@@ -146,7 +146,7 @@ export const isPenaltyCallLegal = (legalPenaltyActions, callIndex) => {
   return legalPenaltyActions
     .slice(
       callIndex * NUM_OF_TEAMS * NUM_OF_PLAYERS,
-      (callIndex + 1) * NUM_OF_TEAMS * NUM_OF_PLAYERS
+      (callIndex + 1) * NUM_OF_TEAMS * NUM_OF_PLAYERS,
     )
     .some((element) => element != 0);
 };
@@ -156,7 +156,7 @@ export const isPenaltyCallLegalForPlayer = (
   side,
   player,
   callIndex,
-  forceUnpenalize
+  forceUnpenalize,
 ) => {
   return (
     legalPenaltyActions[

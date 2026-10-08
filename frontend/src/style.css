@@ -1,11 +1,47 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Tailwind 4 draws borders in the current text color by default, but the borders without an
+   explicit color were gray before. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* Tailwind 4 doesn't change the cursor over buttons anymore. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@theme {
+  --animate-flash-text: flash-text 1s step-start 0s infinite;
+  --animate-flash-bg: flash-bg 1s step-start 0s infinite;
+
+  @keyframes flash-text {
+    50% {
+      color: #facc15;
+    }
+  }
+
+  @keyframes flash-bg {
+    50% {
+      background-color: #facc15;
+    }
+  }
+}
 
 body {
   overflow: hidden;
 }
 
+/* The application manages selection itself, so the (theme-dependent) focus frame is not wanted. */
 button:focus,
 select:focus {
   outline: none;

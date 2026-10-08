@@ -19,35 +19,93 @@ bitflags::bitflags! {
     /// are the same as in [game_controller_autoreferee::Features].
     #[repr(C)]
     pub struct AutorefereeFeatures: u32 {
-        /// Place the ball for set plays (including kick-off, penalty kick, penalty shoot-out).
-        const PLACE_BALL = 1 << 0;
-        /// Check whether the ball went out of bounds and do the appropriate action (depending on
-        /// where and who touched last), e.g. goal, throw-in, goal kick, corner kick.
-        const BALL_OUT = 1 << 1;
-        /// Finish set plays early when the ball is touched by the kicking team.
-        const BALL_FREE = 1 << 2;
+        // State transitions.
         /// Switch to Set early if players didn't move sufficiently long.
-        const SWITCH_TO_SET = 1 << 3;
+        const SWITCH_TO_SET = 1 << 0;
         /// Switch to Playing after some time in Set.
-        const SWITCH_TO_PLAYING = 1 << 4;
-        /// Switch to Finished when the time is up.
-        const SWITCH_TO_FINISHED = 1 << 5;
+        const SWITCH_TO_PLAYING = 1 << 1;
+        /// Switch to Finished when the time is up (and the ball has stopped moving).
+        const SWITCH_TO_FINISHED = 1 << 2;
+
+        // Situations involving the ball.
+        /// Check whether the ball went out of bounds and do the appropriate action (depending on
+        /// where and who touched last), e.g. goal, throw-in, goal kick, corner kick. Also ends
+        /// penalty shots in a penalty shoot-out.
+        const BALL_OUT = 1 << 3;
+        /// Do not count goals that are scored directly from restarts that don't allow it (e.g.
+        /// from a kick-off or a throw-in). Instead, a goal kick or corner kick is awarded. Without
+        /// this flag, every ball that is in a goal counts. Only has an effect together with
+        /// [Self::BALL_OUT].
+        const INVALID_GOAL = 1 << 4;
+        /// Finish set plays early when the ball is touched by the kicking team.
+        const BALL_FREE = 1 << 5;
+        /// Award an indirect free kick to the opponents when the kicker of a throw-in, goal kick
+        /// or corner kick touches the ball again before another player does.
+        const DOUBLE_TOUCH = 1 << 6;
+        /// Call local game stuck (penalizing the player closest to a ball that doesn't move) and
+        /// global game stuck (no player close to the ball).
+        const GAME_STUCK = 1 << 7;
+        /// Move the ball away from a player when it is stuck between its legs.
+        const CLEAR_BALL = 1 << 8;
+
+        // Penalties.
         /// Penalize players that are leaving the field.
-        const PENALIZE_LEAVING_THE_FIELD = 1 << 6;
-        /// Penalize players that are illegally positioned.
-        const PENALIZE_ILLEGAL_POSITIONING = 1 << 7;
-        /// Place players that are penalized.
-        const PLACE_FOR_PENALTY = 1 << 8;
-        /// Start the penalty timers of penalized players right away and unpenalize them when
-        /// their timers are up.
-        const UNPENALIZE = 1 << 9;
+        const PENALIZE_LEAVING_THE_FIELD = 1 << 9;
+        /// Penalize players that are illegally positioned. For penalty kicks, the goalkeeper is
+        /// placed on the goal line instead, and leaving it early results in a goal.
+        const PENALIZE_ILLEGAL_POSITIONING = 1 << 10;
+        /// Penalize players that move in Set.
+        const PENALIZE_MOTION_IN_SET = 1 << 11;
+        /// Penalize players that move while play is stopped.
+        const PENALIZE_MOTION_IN_STOP = 1 << 12;
+        /// Start the penalty timers of penalized players right away (as if they had been returned
+        /// by a robot handler) and unpenalize them when their timers are up. This doesn't check
+        /// whether they are placed correctly.
+        const UNPENALIZE = 1 << 13;
+
+        // Placing players and the ball.
+        /// Place players that are penalized (and substitutes that enter the game) at the edge of
+        /// the carpet in their own half.
+        const PLACE_FOR_PENALTY = 1 << 14;
         /// Place players in a penalty shoot-out.
-        const PLACE_FOR_PENALTY_SHOOT_OUT = 1 << 10;
+        const PLACE_FOR_PENALTY_SHOOT_OUT = 1 << 15;
+        /// Place the ball for set plays (including kick-off, penalty kick, penalty shoot-out).
+        const PLACE_BALL = 1 << 16;
     }
 }
 
-// Both sets of flags must be kept in sync.
-const _: () = assert!(AutorefereeFeatures::all().bits() == Features::all().bits());
+// Both sets of flags must be kept in sync, i.e. every flag must have the same value. (Comparing
+// only the union of all flags would not notice two flags that have swapped values.)
+macro_rules! assert_same_flags {
+    ($($flag:ident),* $(,)?) => {
+        $(const _: () = assert!(AutorefereeFeatures::$flag.bits() == Features::$flag.bits());)*
+        const _: () = assert!(AutorefereeFeatures::all().bits() == Features::all().bits());
+        // This also fails if a flag is added to or removed from only one of the sets.
+        const _: () = assert!(
+            AutorefereeFeatures::all().bits() == (0 $(| Features::$flag.bits())*)
+        );
+    };
+}
+
+assert_same_flags!(
+    SWITCH_TO_SET,
+    SWITCH_TO_PLAYING,
+    SWITCH_TO_FINISHED,
+    BALL_OUT,
+    INVALID_GOAL,
+    BALL_FREE,
+    DOUBLE_TOUCH,
+    GAME_STUCK,
+    CLEAR_BALL,
+    PENALIZE_LEAVING_THE_FIELD,
+    PENALIZE_ILLEGAL_POSITIONING,
+    PENALIZE_MOTION_IN_SET,
+    PENALIZE_MOTION_IN_STOP,
+    UNPENALIZE,
+    PLACE_FOR_PENALTY,
+    PLACE_FOR_PENALTY_SHOOT_OUT,
+    PLACE_BALL,
+);
 
 /// This struct describes the dimensions of the field. The letters refer to the rule book.
 #[repr(C)]
@@ -278,7 +336,8 @@ pub extern "C" fn gc_autoreferee_update(
     }
 }
 
-/// This function notifies the automatic referee that a player touched the ball.
+/// This function notifies the automatic referee that a player touched the ball. It should be
+/// called in every simulation step in which the player is in contact with the ball.
 ///
 /// Returns `false` if an argument is `NULL` or `player` is not a valid player number.
 #[no_mangle]

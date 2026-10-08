@@ -4,9 +4,8 @@ use std::f32::consts::PI;
 
 use enum_map::EnumMap;
 
-use game_controller_core::{
-    timer::{SignedDuration, Timer},
-    types::{Game, Params, Penalty, Phase, PlayerNumber, SetPlay, Side, SideMapping, State},
+use game_controller_core::types::{
+    Game, Penalty, Phase, PlayerNumber, SetPlay, Side, SideMapping, State,
 };
 
 use crate::{index, FieldDimensions, PlayerPose, World, NUM_PLAYERS};
@@ -165,6 +164,118 @@ pub fn is_leaving_the_field(
             || pose.y.abs() > field.width * 0.5 + field.border_strip_width)
 }
 
+/// This function checks whether a player is on its own goal line between the goal posts.
+pub fn is_on_own_goal_line(team_x: f32, pose: &PlayerPose, field: &FieldDimensions) -> bool {
+    pose.y.abs() <= field.goal_width * 0.5
+        && (team_x + (field.length * 0.5 - field.line_width * 0.5)).abs() <= pose.radius
+}
+
+/// This function returns the number of players of a team that are on the field, i.e. that are
+/// present (according to the given poses) and not penalized.
+pub fn players_on_field(
+    game: &Game,
+    poses: &[Option<PlayerPose>; NUM_PLAYERS],
+    side: Side,
+) -> usize {
+    PlayerNumber::all()
+        .filter(|&player| {
+            game.teams[side][player].penalty == Penalty::NoPenalty && poses[index(player)].is_some()
+        })
+        .count()
+}
+
+/// This function returns whether the avoidance region of a free kick (including goal kicks, corner
+/// kicks and throw-ins) is currently in effect.
+pub fn is_avoidance_region_active(game: &Game) -> bool {
+    game.phase != Phase::PenaltyShootout
+        && game.state == State::Playing
+        && !game.stopped
+        && game.kicking_side.is_some()
+        && matches!(
+            game.set_play,
+            SetPlay::GoalKick
+                | SetPlay::DirectFreeKick
+                | SetPlay::IndirectFreeKick
+                | SetPlay::ThrowIn
+                | SetPlay::CornerKick
+        )
+}
+
+/// This function checks whether a player of the defending team is within the avoidance region of
+/// a free kick. Players on their own goal line between the goal posts are exempt.
+pub fn is_in_avoidance_region(
+    game: &Game,
+    world: &World,
+    field: &FieldDimensions,
+    margins: &EnumMap<Side, [Option<Margins>; NUM_PLAYERS]>,
+    side: Side,
+    player: PlayerNumber,
+) -> bool {
+    if !is_avoidance_region_active(game)
+        || game.kicking_side != Some(-side)
+        || game.teams[side][player].penalty != Penalty::NoPenalty
+    {
+        return false;
+    }
+    let (Some(pose), Some(m)) = (
+        world.players[side][index(player)],
+        margins[side][index(player)],
+    ) else {
+        return false;
+    };
+    let sign = side_to_sign(side, game.sides);
+    if is_on_own_goal_line(sign * pose.x, &pose, field) {
+        return false;
+    }
+    let [ball_x, ball_y, _] = world.ball;
+    // The avoidance region of a goal kick is the kicking team's penalty area. For free kicks
+    // inside the defenders' penalty area, the defenders must also be outside of it.
+    let ball_team_x = sign * ball_x;
+    let ball_in_own_penalty_area = ball_team_x <= -field.length * 0.5 + field.penalty_area_length
+        && ball_y.abs() <= field.penalty_area_width * 0.5;
+    (pose.x - ball_x).hypot(pose.y - ball_y) < field.center_circle_radius + pose.radius
+        || (game.set_play == SetPlay::GoalKick && m.opponent_penalty_area > 0.0)
+        || (ball_in_own_penalty_area && m.own_penalty_area > 0.0)
+}
+
+/// This function returns the players of a team that exceed the limit of three players in the own
+/// goal area. If `prefer_newcomers` is set, players that were not inside before (according to
+/// `previously_inside`) are chosen first. Otherwise (and among those), the players closest to the
+/// border of the goal area (and then those with higher numbers) are chosen.
+pub fn goal_area_excess(
+    game: &Game,
+    margins: &EnumMap<Side, [Option<Margins>; NUM_PLAYERS]>,
+    side: Side,
+    previously_inside: &[bool; NUM_PLAYERS],
+    prefer_newcomers: bool,
+) -> Vec<PlayerNumber> {
+    let mut inside: Vec<(PlayerNumber, f32)> = PlayerNumber::all()
+        .filter(|&player| game.teams[side][player].penalty == Penalty::NoPenalty)
+        .filter_map(|player| {
+            margins[side][index(player)]
+                .filter(|m| m.own_goal_area >= 0.0)
+                .map(|m| (player, m.own_goal_area))
+        })
+        .collect();
+    let excess = inside.len().saturating_sub(MAX_PLAYERS_IN_GOAL_AREA);
+    inside.sort_by(|(player1, margin1), (player2, margin2)| {
+        let newcomer =
+            |player: &PlayerNumber| prefer_newcomers && !previously_inside[index(*player)];
+        newcomer(player2)
+            .cmp(&newcomer(player1))
+            .then(margin1.total_cmp(margin2))
+            .then(u8::from(*player2).cmp(&u8::from(*player1)))
+    });
+    inside
+        .into_iter()
+        .take(excess)
+        .map(|(player, _)| player)
+        .collect()
+}
+
+/// The maximum number of players of a team that may be in the own goal area.
+const MAX_PLAYERS_IN_GOAL_AREA: usize = 3;
+
 /// This enumerates the results of checking the position of a player.
 pub enum Positioning {
     /// The player is positioned legally.
@@ -173,23 +284,22 @@ pub enum Positioning {
     Illegal,
     /// The player is positioned illegally unless it is the designated kicker.
     IllegalUnlessKicker,
+    /// The player is in the avoidance region of a free kick. Whether this is illegal depends on
+    /// whether it has had time to leave.
+    InAvoidanceRegion,
 }
 
-/// The time after the beginning of a set play after which defenders must keep their distance to
-/// the ball.
-const SET_PLAY_DISTANCE_GRACE_PERIOD: SignedDuration = SignedDuration::seconds(10);
-
-/// This function checks if a player is illegally positioned.
+/// This function checks if a player is illegally positioned with respect to the rules of the
+/// current set play. The limit of players in the goal area is checked by [goal_area_excess].
 pub fn is_illegally_positioned(
     game: &Game,
-    params: &Params,
     world: &World,
     field: &FieldDimensions,
     margins: &EnumMap<Side, [Option<Margins>; NUM_PLAYERS]>,
     side: Side,
     player: PlayerNumber,
 ) -> Positioning {
-    use Positioning::{Illegal, IllegalUnlessKicker, Legal};
+    use Positioning::{Illegal, IllegalUnlessKicker, InAvoidanceRegion, Legal};
 
     if game.phase == Phase::PenaltyShootout
         || !matches!(game.state, State::Set | State::Playing)
@@ -205,25 +315,6 @@ pub fn is_illegally_positioned(
     };
     let r = pose.radius;
     let team_x = side_to_sign(side, game.sides) * pose.x;
-
-    // Check if too many players of this team are in the own goal area. The players furthest
-    // inside (or with lower numbers) are counted first.
-    if m.own_goal_area >= 0.0 {
-        let players_further_inside = PlayerNumber::all()
-            .filter(|&other| {
-                other != player
-                    && game.teams[side][other].penalty == Penalty::NoPenalty
-                    && margins[side][index(other)].is_some_and(|other_m| {
-                        other_m.own_goal_area > m.own_goal_area
-                            || (other_m.own_goal_area == m.own_goal_area
-                                && u8::from(other) < u8::from(player))
-                    })
-            })
-            .count();
-        if players_further_inside >= 3 {
-            return Illegal;
-        }
-    }
 
     let is_kicking_team = game.kicking_side == Some(side);
     match game.set_play {
@@ -264,15 +355,9 @@ pub fn is_illegally_positioned(
                     Legal
                 }
             } else if game.teams[side].goalkeeper == Some(player) {
-                // The goalkeeper must be on the goal line. When it is outside the penalty area
-                // during Playing, that's also fine (e.g. when it is unpenalized during the kick).
-                let on_goal_line = pose.y.abs() <= field.goal_width * 0.5
-                    && (team_x + (field.length * 0.5 - field.line_width * 0.5)).abs() <= r;
-                if on_goal_line || (game.state == State::Playing && m.own_penalty_area <= 0.0) {
-                    Legal
-                } else {
-                    Illegal
-                }
+                // The goalkeeper is placed on the goal line when entering Set. Leaving it early in
+                // Playing results in a goal instead of a penalty.
+                Legal
             } else {
                 let own_mark_x = -(field.length * 0.5 - field.penalty_mark_distance);
                 let distance_to_own_mark = (team_x - own_mark_x).hypot(pose.y);
@@ -291,25 +376,8 @@ pub fn is_illegally_positioned(
         | SetPlay::IndirectFreeKick
         | SetPlay::ThrowIn
         | SetPlay::CornerKick => {
-            // Defenders get some time to leave the area around the ball.
-            let elapsed =
-                SignedDuration::try_from(params.competition.set_plays[game.set_play].duration)
-                    .unwrap_or(SignedDuration::ZERO)
-                    - game.secondary_timer.get_remaining();
-            if is_kicking_team
-                || game.kicking_side.is_none()
-                || game.state != State::Playing
-                || game.stopped
-                || !matches!(game.secondary_timer, Timer::Started { .. })
-                || elapsed < SET_PLAY_DISTANCE_GRACE_PERIOD
-            {
-                return Legal;
-            }
-            let distance_to_ball = (pose.x - world.ball[0]).hypot(pose.y - world.ball[1]);
-            if distance_to_ball < field.center_circle_radius + r
-                || (game.set_play == SetPlay::GoalKick && m.opponent_penalty_area > 0.0)
-            {
-                Illegal
+            if is_in_avoidance_region(game, world, field, margins, side, player) {
+                InAvoidanceRegion
             } else {
                 Legal
             }

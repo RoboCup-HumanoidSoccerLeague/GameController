@@ -81,7 +81,9 @@ bitflags! {
         const CLEAR_BALL = 1 << 8;
 
         // Penalties.
-        /// Penalize players that are leaving the field.
+        /// Penalize players that are leaving the field. Players returning from a penalty are only
+        /// penalized if they get further beyond the edge of the carpet than they were when they
+        /// were unpenalized (e.g. after drifting while they were penalized).
         const PENALIZE_LEAVING_THE_FIELD = 1 << 9;
         /// Penalize players that are illegally positioned. For penalty kicks, the goalkeeper is
         /// placed on the goal line instead, and leaving it early results in a goal.
@@ -208,7 +210,10 @@ pub enum Command {
 enum RestartKind {
     /// A kick-off: no direct goal against the opponents.
     KickOff,
-    /// An indirect free kick (including throw-ins): no direct goal against the opponents.
+    /// An indirect free kick (including throw-ins): no direct goal against the opponents. As
+    /// announced by the Technical Committee, a team with at most two players on the field may
+    /// score after its kicker touched the ball again at least twice the center circle radius away
+    /// from where the ball was kicked.
     Indirect,
     /// A direct free kick (including goal kicks, corner kicks and penalty kicks).
     Direct,
@@ -234,6 +239,9 @@ struct Restart {
     other_touch: bool,
     /// Whether the kicker touched the ball outside of the center circle.
     kicker_touched_outside_center_circle: bool,
+    /// Whether the kicker touched the ball again at least twice the center circle radius away from
+    /// the kick position while its team had at most two players on the field.
+    kicker_touched_far_from_kick: bool,
     /// Whether the ball clearly moved since the kick.
     ball_moved_since_kick: bool,
 }
@@ -258,6 +266,9 @@ pub struct Autoreferee {
     kicking_player: Option<PlayerNumber>,
     /// Whether players have been penalized and have not been on the field since.
     returning: EnumMap<Side, [bool; NUM_PLAYERS]>,
+    /// How far returning players were beyond the edge of the carpet when they were unpenalized
+    /// (at least 0), which they may be without leaving the field.
+    return_allowance: EnumMap<Side, [Option<f32>; NUM_PLAYERS]>,
     /// Whether players (of the defending team) have been outside the avoidance region since the
     /// current set play began.
     left_avoidance: EnumMap<Side, [bool; NUM_PLAYERS]>,
@@ -353,6 +364,10 @@ impl Autoreferee {
     const MOTION_DISTANCE: f32 = 0.1;
     /// The angle a player must turn to be penalized for motion in Set / Stop.
     const MOTION_ANGLE: f32 = 0.3;
+    /// How much further than when it was unpenalized a returning player may be beyond the edge
+    /// of the carpet before it is penalized for leaving the field. A placed player may still have
+    /// momentum (or fall over) and drift outwards while it is penalized.
+    const RETURN_TOLERANCE: f32 = 0.05;
 
     /// This function creates a new automatic referee.
     pub fn new(config: Config) -> Self {
@@ -366,6 +381,7 @@ impl Autoreferee {
             last_contact: None,
             kicking_player: None,
             returning: EnumMap::default(),
+            return_allowance: EnumMap::default(),
             left_avoidance: EnumMap::default(),
             in_goal_area: EnumMap::default(),
             ball: [0.0; 3],
@@ -503,6 +519,9 @@ impl Autoreferee {
         let [ball_x, ball_y, _] = self.ball;
         let ball_outside_center_circle = ball_x.hypot(ball_y)
             > self.config.field.center_circle_radius + self.config.field.ball_radius;
+        let far_from_kick_distance = 2.0 * self.config.field.center_circle_radius;
+        let small_team =
+            rules::players_on_field(gc.get_game(false), &self.last_poses[side], side) <= 2;
         let Some(restart) = self.restart.as_mut() else {
             return;
         };
@@ -515,6 +534,9 @@ impl Autoreferee {
             }
             Some((kicker, _)) if side == restart.side && player == kicker => {
                 restart.kicker_touched_outside_center_circle |= ball_outside_center_circle;
+                restart.kicker_touched_far_from_kick |= small_team
+                    && (ball_x - restart.kick_position[0]).hypot(ball_y - restart.kick_position[1])
+                        >= far_from_kick_distance;
                 !restart.other_touch && restart.ball_moved_since_kick
             }
             _ => {
@@ -591,6 +613,7 @@ impl Autoreferee {
                 kick_position: [0.0; 2],
                 other_touch: false,
                 kicker_touched_outside_center_circle: false,
+                kicker_touched_far_from_kick: false,
                 ball_moved_since_kick: false,
             });
             // Set plays that start during Playing are placed immediately. Kick-offs and penalty
@@ -671,6 +694,7 @@ impl Autoreferee {
                     kick_position: [0.0; 2],
                     other_touch: false,
                     kicker_touched_outside_center_circle: false,
+                    kicker_touched_far_from_kick: false,
                     ball_moved_since_kick: false,
                 });
                 if let Some(kicking_side) = game.kicking_side {
@@ -1152,16 +1176,22 @@ impl Autoreferee {
 
     /// This function keeps track of which players are returning from a penalty, i.e. have been
     /// penalized and have not been on the field since.
+    /// It also records how far they were beyond the edge of the carpet when they were unpenalized.
     fn update_returning(&mut self, gc: &GameController, world: &World) {
         let game = gc.get_game(false);
         for (side, player) in all_players() {
             let returning = &mut self.returning[side][index(player)];
+            let allowance = &mut self.return_allowance[side][index(player)];
+            let pose = world.players[side][index(player)];
             if game.teams[side][player].penalty != Penalty::NoPenalty {
                 *returning = true;
-            } else if world.players[side][index(player)]
-                .is_some_and(|pose| !rules::is_outside_field(&pose, &self.config.field))
-            {
+                *allowance = None;
+            } else if pose.is_some_and(|pose| !rules::is_outside_field(&pose, &self.config.field)) {
                 *returning = false;
+                *allowance = None;
+            } else if *returning && allowance.is_none() {
+                *allowance =
+                    pose.map(|pose| rules::carpet_excess(&pose, &self.config.field).max(0.0));
             }
         }
     }
@@ -1203,9 +1233,19 @@ impl Autoreferee {
 
         for (side, player) in all_players() {
             let game = gc.get_game(false);
+            // Players returning from a penalty may have drifted off the carpet while they were
+            // penalized, which doesn't count as leaving the field.
+            let allowance = self.return_allowance[side][index(player)]
+                .map_or(0.0, |allowance| allowance + Self::RETURN_TOLERANCE);
             let call = if features.contains(Features::PENALIZE_LEAVING_THE_FIELD)
-                && rules::is_leaving_the_field(game, world, &self.config.field, side, player)
-            {
+                && rules::is_leaving_the_field(
+                    game,
+                    world,
+                    &self.config.field,
+                    side,
+                    player,
+                    allowance,
+                ) {
                 Some(PenaltyCall::LeavingTheField)
             } else if features.contains(Features::PENALIZE_ILLEGAL_POSITIONING)
                 && (goal_area_excess.contains(&(side, player))
@@ -1408,7 +1448,9 @@ impl Autoreferee {
         }
         let valid = match restart.kind {
             RestartKind::Direct | RestartKind::PenaltyShot => true,
-            RestartKind::Indirect => false,
+            // A team with at most two players on the field may score after the kicker has touched
+            // the ball again far enough from where the restart was taken.
+            RestartKind::Indirect => restart.kicker_touched_far_from_kick,
             // A team with at most two players on the field may score after the kicker has touched
             // the ball outside the center circle.
             RestartKind::KickOff => {

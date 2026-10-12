@@ -147,21 +147,28 @@ pub fn penalty_placement_candidates(start: f32, min: f32, max: f32, step: f32) -
     candidates
 }
 
+/// This function returns how far the center of a player is beyond the edge of the carpeted area
+/// (negative if it is inside).
+pub fn carpet_excess(pose: &PlayerPose, field: &FieldDimensions) -> f32 {
+    (pose.x.abs() - (field.length * 0.5 + field.border_strip_width))
+        .max(pose.y.abs() - (field.width * 0.5 + field.border_strip_width))
+}
+
 /// This function checks a very crude approximation of leaving the field, i.e. whether an
-/// unpenalized player is outside the carpeted area.
+/// unpenalized player is outside the carpeted area by more than `allowance`.
 pub fn is_leaving_the_field(
     game: &Game,
     world: &World,
     field: &FieldDimensions,
     side: Side,
     player: PlayerNumber,
+    allowance: f32,
 ) -> bool {
     let Some(pose) = world.players[side][index(player)] else {
         return false;
     };
     game.teams[side][player].penalty == Penalty::NoPenalty
-        && (pose.x.abs() > field.length * 0.5 + field.border_strip_width
-            || pose.y.abs() > field.width * 0.5 + field.border_strip_width)
+        && carpet_excess(&pose, field) > allowance
 }
 
 /// This function checks whether a player is on its own goal line between the goal posts.

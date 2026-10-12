@@ -49,7 +49,9 @@ bitflags::bitflags! {
         const CLEAR_BALL = 1 << 8;
 
         // Penalties.
-        /// Penalize players that are leaving the field.
+        /// Penalize players that are leaving the field. Players returning from a penalty are only
+        /// penalized if they get further beyond the edge of the carpet than they were when they
+        /// were unpenalized (e.g. after drifting while they were penalized).
         const PENALIZE_LEAVING_THE_FIELD = 1 << 9;
         /// Penalize players that are illegally positioned. For penalty kicks, the goalkeeper is
         /// placed on the goal line instead, and leaving it early results in a goal.

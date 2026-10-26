@@ -1,6 +1,6 @@
 //! This module defines handlers that can be called from JavaScript.
 
-use std::{env::current_exe, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use tauri::{
@@ -15,7 +15,7 @@ use game_controller_runtime::{
     start_runtime, RuntimeState,
 };
 
-use crate::show_fatal_error;
+use crate::{show_fatal_error, ConfigDirectory};
 
 /// This struct is used as state so that the [launch] function can communicate to
 /// [sync_with_backend] that the full [RuntimeState] is managed now.
@@ -55,28 +55,28 @@ async fn launch(settings: LaunchSettings, window: WebviewWindow, app: AppHandle)
     };
 
     let launch_data = app.state::<LaunchData>();
-    match start_runtime(
-        &current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("..")
-            .join("..")
-            .join("config"),
-        &current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("..")
-            .join("..")
-            .join("logs"),
-        &settings,
-        &launch_data.teams,
-        &launch_data.network_interfaces,
-        Box::new(send_ui_state),
-    )
+    let config_directory = app.state::<ConfigDirectory>();
+    match async {
+        // The logs are kept in a per-user directory, so that they survive removing or replacing
+        // the installation, and all installations write to the same place.
+        let log_directory = app
+            .path()
+            .local_data_dir()
+            .context("could not determine the user's data directory")?
+            .join("GameController")
+            .join("logs");
+        start_runtime(
+            &config_directory.0,
+            &log_directory,
+            &settings,
+            &launch_data.teams,
+            &launch_data.network_interfaces,
+            Box::new(send_ui_state),
+        )
+        .await
+        .context("could not start runtime")
+    }
     .await
-    .context("could not start runtime")
     {
         Ok(runtime_state) => {
             app.manage(runtime_state);

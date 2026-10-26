@@ -30,7 +30,7 @@ The version is only defined in `Cargo.toml` (the Tauri configuration has none, s
    git push hsl master v7.1.0-rc.1
    ```
 
-3. The tag triggers `.github/workflows/mkdist.yml`. It builds the app and the C/C++ API on all platforms and then creates a **draft** release with all archives attached. Release candidates are marked as pre-releases. The notes list the commits since the previous release (for a release candidate: since the previous tag; for a final version: since the previous final version).
+3. The tag triggers `.github/workflows/mkdist.yml`. It builds the app, the C/C++ API and the log tool on all platforms (`dist/mkdist`) and then creates a **draft** release with all archives attached. Release candidates are marked as pre-releases. The notes list the commits since the previous release (for a release candidate: since the previous tag; for a final version: since the previous final version).
 
 4. On GitHub, edit the notes of the draft (summarize, remove noise, mention what teams have to change) and publish it.
 

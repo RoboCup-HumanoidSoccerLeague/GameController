@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# This script tells the macOS application firewall to allow incoming connections for the
+# GameController, so that no dialog interrupts the first start (e.g. on a machine that is set up
+# before an event). It asks for the administrator password. It is in the app bundle
+# (Contents/Resources/allow-firewall) and can be run from a terminal.
+
+app="${1:-/Applications/GameController.app}"
+if [ ! -d "${app}" ]; then
+  >&2 echo "${app} not found. Copy the GameController to /Applications first."
+  exit 1
+fi
+
+firewall=/usr/libexec/ApplicationFirewall/socketfilterfw
+sudo "${firewall}" --add "${app}" && sudo "${firewall}" --unblockapp "${app}"

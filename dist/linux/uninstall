@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# This script removes an installation of the GameController (it is installed by the install script
+# to <prefix>/share/game_controller). With --purge, the user's configuration and logs are removed,
+# too; otherwise they are kept.
+
+set -e
+
+purge=false
+while [ $# -gt 0 ]; do
+  case "${1}" in
+    --purge) purge=true; shift ;;
+    *)
+      >&2 echo "usage: ${0} [--purge]"
+      exit 1
+      ;;
+  esac
+done
+
+sharedir="$(cd "$(dirname "${0}")" && pwd)"
+manifest="${sharedir}/install-manifest"
+if [ ! -f "${manifest}" ]; then
+  >&2 echo "This is not an installed GameController (${manifest} not found)."
+  exit 1
+fi
+prefix="$(cd "${sharedir}/../.." && pwd)"
+
+while read -r file; do
+  rm -f "${file}"
+  # Remove directories that became empty, but never the prefix itself.
+  dir="$(dirname "${file}")"
+  while [ "${dir}" != "${prefix}" ] && [ "${dir}" != "/" ] && rmdir "${dir}" 2>/dev/null; do
+    dir="$(dirname "${dir}")"
+  done
+done <"${manifest}"
+
+if command -v update-desktop-database >/dev/null; then
+  update-desktop-database "${prefix}/share/applications" 2>/dev/null || true
+fi
+if command -v gtk-update-icon-cache >/dev/null && [ -d "${prefix}/share/icons/hicolor" ]; then
+  gtk-update-icon-cache -q -t -f "${prefix}/share/icons/hicolor" || true
+fi
+echo "Removed the GameController from ${prefix}."
+
+if ${purge}; then
+  for dir in "${XDG_CONFIG_HOME:-${HOME}/.config}/GameController" \
+    "${XDG_DATA_HOME:-${HOME}/.local/share}/GameController"; do
+    if [ -d "${dir}" ]; then
+      read -r -p "Remove ${dir} (configuration or logs)? [y/N] " answer
+      case "${answer}" in
+        [yY]*) rm -rf "${dir}" ;;
+      esac
+    fi
+  done
+fi

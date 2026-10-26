@@ -42,6 +42,7 @@ pub mod cli;
 mod connection_status;
 pub mod launch;
 mod logger;
+pub mod paths;
 
 use connection_status::{
     get_connection_status_map, get_next_connection_status_change, AlivenessTimestampMap,

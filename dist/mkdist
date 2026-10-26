@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Builds distributions of the GameController into dist/. The products are the application (app),
+# the C API (api) and the log analysis tool (logs); by default all are built, in one cargo build.
+
+source "$(dirname "$(which "${0}")")/lib.sh"
+
+usage() {
+  >&2 echo "usage: ${0} [--only app,api,logs] [--stage-only] <version> [<target>]"
+  exit 1
+}
+
+products="app api logs"
+stage_only=false
+while [ $# -gt 0 ]; do
+  case "${1}" in
+    --only) [ -n "${2}" ] || usage; products="${2//,/ }"; shift 2 ;;
+    --stage-only) stage_only=true; shift ;;
+    -*) usage ;;
+    *) break ;;
+  esac
+done
+init_target "${1}" "${2}" || usage
+
+packages=()
+for product in ${products}; do
+  case "${product}" in
+    app) packages+=(game_controller_app) ;;
+    api) packages+=(game_controller_api) ;;
+    logs) packages+=(game_controller_logs) ;;
+    *) usage ;;
+  esac
+  source "${distdir}/product-${product}.sh"
+done
+
+case " ${products} " in
+  *" app "*) build_frontend ;;
+esac
+build_packages "${packages[@]}"
+
+for product in ${products}; do
+  "stage_${product}"
+  if ! ${stage_only}; then
+    "pack_${product}"
+  fi
+done

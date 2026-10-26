@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Creates a self-signed code signing certificate for the GameController in a PKCS#12 file. Signing
+# every release with the same certificate gives the app a stable identity, so that macOS keeps the
+# permissions (local network, firewall) that the user granted when the app is updated.
+#
+# Keep the file safe and don't create a new certificate for later releases: with a different one,
+# macOS treats the app as a different app. For CI, store `base64 -i <file>` as the secret
+# MACOS_CERTIFICATE and the password as MACOS_CERTIFICATE_PASSWORD. On this machine, import it
+# with `security import <file> -k ~/Library/Keychains/login.keychain-db -T /usr/bin/codesign`.
+
+set -e
+
+output=${1:-GameController-signing.p12}
+if [ -e "${output}" ]; then
+  >&2 echo "${output} already exists"
+  exit 1
+fi
+read -r -s -p "Password for ${output}: " password
+echo
+
+workdir="$(mktemp -d)"
+trap 'rm -rf "${workdir}"' EXIT
+cat >"${workdir}/openssl.cnf" <<END
+[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = GameController Code Signing
+O = RoboCup Humanoid Soccer League
+[ext]
+basicConstraints = critical, CA:false
+keyUsage = critical, digitalSignature
+extendedKeyUsage = critical, codeSigning
+END
+# Ten years; the validity is not checked for the identity of the app.
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -config "${workdir}/openssl.cnf" \
+  -keyout "${workdir}/key.pem" -out "${workdir}/cert.pem"
+openssl pkcs12 -export -inkey "${workdir}/key.pem" -in "${workdir}/cert.pem" \
+  -name "GameController Code Signing" -passout "pass:${password}" -out "${output}"
+echo "Created ${output}"

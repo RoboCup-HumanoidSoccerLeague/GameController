@@ -35,7 +35,7 @@ for manifest in Cargo.toml; do
 done
 
 git commit --all --message "Version ${version}"
-git tag --annotate "v${version}" --message "Version ${version}"
+git tag "v${version}"
 
 branch="$(git branch --show-current)"
 remote="$(git config --get "branch.${branch}.remote" || echo "<remote>")"

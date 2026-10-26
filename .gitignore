@@ -3,6 +3,8 @@
 /dist/*.dmg
 /dist/*.tar.bz2
 /dist/*.zip
-/dist/*/
+/dist/.venv-dmgbuild
+/dist/GameController-*/
+/dist/game_controller*/
 /logs
 /target

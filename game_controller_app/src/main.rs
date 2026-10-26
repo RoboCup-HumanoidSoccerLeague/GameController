@@ -5,22 +5,59 @@
     windows_subsystem = "windows"
 )]
 
-use std::env::current_exe;
+use std::{
+    env::current_exe,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
-use anyhow::Error;
-use clap::Parser;
+use anyhow::{Context, Error, Result};
 use tauri::{
     async_runtime, generate_context, AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 use game_controller_runtime::{
-    cli::Args, launch::make_launch_data, shutdown_runtime, RuntimeState,
+    cli::{parse_args, Args},
+    launch::make_launch_data,
+    paths::{
+        config_candidates, default_args_file, install_user_config, resolve_config_directory,
+        stale_config_warning, user_directory,
+    },
+    shutdown_runtime, RuntimeState,
 };
 
 mod handlers;
 
 use handlers::get_invoke_handler;
+
+/// This struct is used as state to tell the handlers which configuration directory is in use.
+pub struct ConfigDirectory(pub PathBuf);
+
+/// This function returns the real path of the executable, which is the base for finding the
+/// installed configuration (symbolic links must not confuse the search).
+fn executable_path() -> Result<PathBuf> {
+    let exe = current_exe().context("could not determine the path of the executable")?;
+    Ok(exe.canonicalize().unwrap_or(exe))
+}
+
+/// This function prints where the GameController looks for its files.
+fn show_paths(args: &Args, exe: &Path) {
+    let user = user_directory();
+    println!("Executable: {}", exe.display());
+    for (origin, directory) in config_candidates(args.config_dir.as_deref(), user.as_deref(), exe) {
+        let state = if directory.join("teams.yaml").is_file() {
+            "found"
+        } else {
+            "not found"
+        };
+        println!("Config ({origin}): {} [{state}]", directory.display());
+    }
+    match default_args_file() {
+        Some(file) => println!("Options file: {}", file.display()),
+        None => println!("Options file: unknown"),
+    }
+}
 
 /// This function shows an error to the user and exits the app when the user dismisses it. The
 /// error is also printed to stderr for users who started the app from a terminal.
@@ -40,7 +77,38 @@ pub fn show_fatal_error(app: &AppHandle, error: &Error) {
 fn main() {
     // Parse the command line arguments first. This includes handling the version and help commands
     // and wrong arguments.
-    let args = Args::parse();
+    let parsed = parse_args().unwrap_or_else(|error| {
+        eprintln!("{error:?}");
+        exit(2);
+    });
+    let args = parsed.args;
+    if let Some((file, options)) = &parsed.options_file {
+        if !options.is_empty() {
+            eprintln!(
+                "Using options from {}: {}",
+                file.display(),
+                options.join(" ")
+            );
+        }
+    }
+
+    // These commands don't need the app.
+    if args.show_paths || args.install_config {
+        let result = executable_path().and_then(|exe| {
+            if args.show_paths {
+                show_paths(&args, &exe);
+                Ok(())
+            } else {
+                let user = user_directory().context("could not determine the user directory")?;
+                install_user_config(&user, &exe)
+            }
+        });
+        if let Err(error) = result {
+            eprintln!("{error:?}");
+            exit(1);
+        }
+        return;
+    }
 
     // We want to manage an external tokio runtime, mainly to keep dependencies to tauri minimal,
     // but also because I don't know how to do the shutdown correctly otherwise.
@@ -53,19 +121,34 @@ fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let config_directory = current_exe()?
-                .parent()
-                .unwrap()
-                .join("..")
-                .join("..")
-                .join("config");
-            match make_launch_data(&config_directory, args) {
+            let resolved = match executable_path().and_then(|exe| {
+                resolve_config_directory(
+                    args.config_dir.as_deref(),
+                    user_directory().as_deref(),
+                    &exe,
+                )
+            }) {
+                Ok(resolved) => resolved,
+                Err(error) => {
+                    show_fatal_error(app.handle(), &error);
+                    return Ok(());
+                }
+            };
+            eprintln!("Using config directory {resolved}");
+            if let Some(warning) = stale_config_warning(&resolved) {
+                eprintln!("Warning: {warning}");
+            }
+            match make_launch_data(&resolved.directory, args) {
                 Ok(launch_data) => {
                     app.manage(launch_data);
+                    app.manage(ConfigDirectory(resolved.directory));
                 }
                 Err(error) => {
                     // The launcher window is not created because it needs the launch data.
-                    show_fatal_error(app.handle(), &error);
+                    show_fatal_error(
+                        app.handle(),
+                        &error.context(format!("invalid configuration in {resolved}")),
+                    );
                     return Ok(());
                 }
             };

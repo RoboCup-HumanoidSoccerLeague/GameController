@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# This script installs the GameController from this directory (an extracted archive) into a prefix.
+# By default, this is ~/.local, so that no administrator rights are needed and the configuration
+# can be edited by the user. Installing over an existing installation updates it. Remove the
+# installation with the uninstall script (also installed to <prefix>/share/game_controller).
+
+set -e
+
+prefix="${HOME}/.local"
+while [ $# -gt 0 ]; do
+  case "${1}" in
+    --prefix)
+      [ -n "${2}" ] || { >&2 echo "--prefix needs an argument"; exit 1; }
+      prefix="${2}"
+      shift 2
+      ;;
+    *)
+      >&2 echo "usage: ${0} [--prefix <dir>]"
+      exit 1
+      ;;
+  esac
+done
+
+srcdir="$(cd "$(dirname "${0}")" && pwd)"
+mkdir -p "${prefix}"
+prefix="$(cd "${prefix}" && pwd)"
+sharedir="${prefix}/share/game_controller"
+manifest="${sharedir}/install-manifest"
+desktopfile="${prefix}/share/applications/org.robocup.hsl.game-controller.desktop"
+
+# Remove the files of a previous installation, so that files which no longer exist don't remain.
+# User configuration and logs are not touched.
+if [ -f "${manifest}" ]; then
+  "${sharedir}/uninstall"
+fi
+
+# The path is quoted as required by the Desktop Entry Specification: ", `, $ and \ are escaped
+# for the quoting, then backslashes are escaped again for the string value, and % is escaped
+# because it would start a field code.
+exec="$(printf '%s' "${prefix}/bin/game_controller" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g' -e 's/%/%%/g')"
+
+newmanifest="$(mktemp)"
+trap 'rm -f "${newmanifest}"' EXIT
+(cd "${srcdir}" && find bin share -type f) | while read -r file; do
+  mkdir -p "$(dirname "${prefix}/${file}")"
+  if [ "${prefix}/${file}" = "${desktopfile}" ]; then
+    # sed's replacement would interpret & and \, so the line is assembled differently.
+    while IFS= read -r line; do
+      if [ "${line}" = "Exec=@EXEC@" ]; then
+        printf 'Exec="%s"\n' "${exec}"
+      else
+        printf '%s\n' "${line}"
+      fi
+    done <"${srcdir}/${file}" >"${prefix}/${file}"
+  else
+    cp -p "${srcdir}/${file}" "${prefix}/${file}"
+  fi
+  echo "${prefix}/${file}" >>"${newmanifest}"
+done
+
+mkdir -p "${sharedir}"
+cp -p "${srcdir}/uninstall" "${sharedir}/uninstall"
+echo "${sharedir}/uninstall" >>"${newmanifest}"
+echo "${manifest}" >>"${newmanifest}"
+cp "${newmanifest}" "${manifest}"
+
+# Desktops usually notice new entries by themselves, but some need the caches updated.
+if command -v update-desktop-database >/dev/null; then
+  update-desktop-database "${prefix}/share/applications" || true
+fi
+if command -v gtk-update-icon-cache >/dev/null; then
+  gtk-update-icon-cache -q -t -f "${prefix}/share/icons/hicolor" || true
+fi
+
+echo "Installed the GameController to ${prefix}."
+case ":${PATH}:" in
+  *":${prefix}/bin:"*) ;;
+  *) echo "Note: ${prefix}/bin is not in your PATH." ;;
+esac

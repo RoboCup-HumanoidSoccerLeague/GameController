@@ -6,5 +6,4 @@
 /dist/.venv-dmgbuild
 /dist/GameController-*/
 /dist/game_controller*/
-/logs
 /target

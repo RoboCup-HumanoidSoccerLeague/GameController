@@ -155,20 +155,22 @@ Some fields will be pre-filled by command line arguments, if they were specified
 
 The following settings are exposed via the launcher:
 - Competition: This box selects the competition type of the game. It influences the behavior and constants of the GameController and narrows down the set of teams that can be selected.
-- Teams:
-    - Kick-off for (home / away) team: This box selects which team has the first kick-off, as a result of the coin tosses before the game.
+- Home / Away Team:
     - The main box selects the team on the respective side.
-    - Field player color and goalkeeper color: These boxes select the jersey colors of the team.
+    - Field Player Color and Goalkeeper Color: These boxes select the jersey colors of the team.
+    - Kick-off: This radio button selects which team has the first kick-off, as a result of the coin tosses before the game.
+- Mirror (between the team boxes): This checkbox selects if the home (first on the schedule) team defends the right side (from the GameController's perspective) instead of the left side, as a result of the coin tosses before the game. The team boxes swap their places accordingly.
+- Network Interface: This box selects the network interface to run on (see [above](#network-communication)). Not all interfaces that are listed will necessarily work.
+- Fullscreen: This checkbox selects if the window should be switched to fullscreen mode when started.
+- Casting (Advanced):
+    - Broadcast: This checkbox selects if control messages are sent to the limited broadcast address (`255.255.255.255`) instead of the interface's broadcast address. Should only be used when it is required that those messages are sent on all interfaces.
+    - Multicast: This checkbox selects whether team communication is also received from a certain multicast group. Should only be used for simulated games, *never* for real competition games.
 - Testing:
     - No Delay: This checkbox disables the delay of game state transitions.
     - Penalty Shoot-out: This checkbox allows to start/continue a penalty shoot-out even though the game is actually decided.
-- Mirror: This checkbox selects if the home (first on the schedule) team defends the right side (from the GameController's perspective) instead of the left side, as a result of the coin tosses before the game.
-- Fullscreen: This checkbox selects if the window should be switched to fullscreen mode when started.
-- Interface: This box selects the network interface to run on (see [above](#network-communication)). Not all interfaces that are listed will necessarily work.
-- Broadcast: This checkbox selects if control messages are sent to the limited broadcast address (`255.255.255.255`) instead of the interface's broadcast address. Should only be used when it is required that those messages are sent on all interfaces.
-- Multicast: This checkbox selects whether team communication is also received from a certain multicast group. Should only be used for simulated games, *never* for real competition games.
 
 The launcher allows to start a game only if the two teams are distinct and their jersey colors don't conflict, i.e. the field player colors must be different from each other and from the opponent's goalkeeper color.
+Otherwise, the Start button is disabled and the boxes that need to be changed are outlined in red.
 Note that changing the sides or the kick-off team is not possible afterwards, so the switch to the main interface can only be done after the coin tosses.
 
 ### Main Interface

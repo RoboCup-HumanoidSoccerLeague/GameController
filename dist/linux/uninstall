@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script removes an installation of the GameController (it is installed by the install script
-# to <prefix>/share/game_controller). With --purge, the user's configuration and logs are removed,
+# to <prefix>/share/GameController). With --purge, the user's configuration and logs are removed,
 # too; otherwise they are kept.
 
 set -e

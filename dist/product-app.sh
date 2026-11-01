@@ -20,16 +20,16 @@ pack_app() {
 # The archive has the layout of an installation prefix, so that it also runs in place, and the
 # scripts install and uninstall copy the tree to a prefix and remove it again.
 stage_app_linux() {
-  app_dir="${distdir}/game_controller-${version}-${target}"
+  app_dir="${distdir}/GameController-${version}-${target}"
   rm -rf "${app_dir}"
   mkdir -p "${app_dir}/bin" \
     "${app_dir}/share/applications" \
     "${app_dir}/share/icons/hicolor/512x512/apps" \
-    "${app_dir}/share/doc/game_controller" \
-    "${app_dir}/share/game_controller"
-  install_built game_controller_app "${app_dir}/bin/game_controller"
-  cp -r "${basedir}/config" "${app_dir}/share/game_controller"
-  cp "${basedir}/LICENSE" "${basedir}/README.md" "${app_dir}/share/doc/game_controller"
+    "${app_dir}/share/doc/GameController" \
+    "${app_dir}/share/GameController"
+  install_built game_controller_app "${app_dir}/bin/GameController"
+  cp -r "${basedir}/config" "${app_dir}/share/GameController"
+  cp "${basedir}/LICENSE" "${basedir}/README.md" "${app_dir}/share/doc/GameController"
   cp "${basedir}/game_controller_app/icons/icon.png" \
     "${app_dir}/share/icons/hicolor/512x512/apps/${app_id}.png"
   # The Exec line is filled in by the install script. GTK names the window after the executable,
@@ -43,7 +43,7 @@ Exec=@EXEC@
 Icon=${app_id}
 Terminal=false
 Categories=Utility;
-StartupWMClass=game_controller
+StartupWMClass=GameController
 END
   cp "${distdir}/linux/install" "${distdir}/linux/uninstall" "${app_dir}"
   chmod a+x "${app_dir}/install" "${app_dir}/uninstall"
@@ -159,6 +159,6 @@ pack_app_macos() {
   "${venv}/bin/dmgbuild" -s "${distdir}/macos/dmg-settings.py" \
     -D "app=${app_template}/GameController.app" \
     -D "background=${background}" \
-    "GameController-${version}" "${app_dmg}" 2> >(grep -v "^hdiutil: WARNING" >&2)
+    "GameController ${version}" "${app_dmg}" 2> >(grep -v "^hdiutil: WARNING" >&2)
   rm -f "${background}"
 }

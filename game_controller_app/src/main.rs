@@ -22,7 +22,7 @@ use game_controller_runtime::{
     launch::make_launch_data,
     paths::{
         config_candidates, default_args_file, install_user_config, resolve_config_directory,
-        stale_config_warning, user_directory,
+        stale_config_warning, user_config_directory, user_directory, user_log_directory,
     },
     shutdown_runtime, RuntimeState,
 };
@@ -43,7 +43,7 @@ fn executable_path() -> Result<PathBuf> {
 
 /// This function prints where the GameController looks for its files.
 fn show_paths(args: &Args, exe: &Path) {
-    let user = user_directory();
+    let user = user_config_directory();
     println!("Executable: {}", exe.display());
     for (origin, directory) in config_candidates(args.config_dir.as_deref(), user.as_deref(), exe) {
         let state = if directory.join("teams.yaml").is_file() {
@@ -56,6 +56,10 @@ fn show_paths(args: &Args, exe: &Path) {
     match default_args_file() {
         Some(file) => println!("Options file: {}", file.display()),
         None => println!("Options file: unknown"),
+    }
+    match user_log_directory() {
+        Some(directory) => println!("Logs: {}", directory.display()),
+        None => println!("Logs: unknown"),
     }
 }
 
@@ -124,7 +128,7 @@ fn main() {
             let resolved = match executable_path().and_then(|exe| {
                 resolve_config_directory(
                     args.config_dir.as_deref(),
-                    user_directory().as_deref(),
+                    user_config_directory().as_deref(),
                     &exe,
                 )
             }) {

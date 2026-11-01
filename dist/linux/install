@@ -3,7 +3,7 @@
 # This script installs the GameController from this directory (an extracted archive) into a prefix.
 # By default, this is ~/.local, so that no administrator rights are needed and the configuration
 # can be edited by the user. Installing over an existing installation updates it. Remove the
-# installation with the uninstall script (also installed to <prefix>/share/game_controller).
+# installation with the uninstall script (also installed to <prefix>/share/GameController).
 
 set -e
 
@@ -25,7 +25,7 @@ done
 srcdir="$(cd "$(dirname "${0}")" && pwd)"
 mkdir -p "${prefix}"
 prefix="$(cd "${prefix}" && pwd)"
-sharedir="${prefix}/share/game_controller"
+sharedir="${prefix}/share/GameController"
 manifest="${sharedir}/install-manifest"
 desktopfile="${prefix}/share/applications/org.robocup.hsl.game-controller.desktop"
 
@@ -38,7 +38,7 @@ fi
 # The path is quoted as required by the Desktop Entry Specification: ", `, $ and \ are escaped
 # for the quoting, then backslashes are escaped again for the string value, and % is escaped
 # because it would start a field code.
-exec="$(printf '%s' "${prefix}/bin/game_controller" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g' -e 's/%/%%/g')"
+exec="$(printf '%s' "${prefix}/bin/GameController" | sed -e 's/[\\"`$]/\\&/g' -e 's/\\/\\\\/g' -e 's/%/%%/g')"
 
 newmanifest="$(mktemp)"
 trap 'rm -f "${newmanifest}"' EXIT

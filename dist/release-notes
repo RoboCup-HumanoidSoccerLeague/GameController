@@ -26,7 +26,7 @@ fi
 cat <<END
 ## Downloads
 
-- **GameController:** \`GameController-${version}.dmg\` (macOS, universal), \`GameController-${version}-x86_64-pc-windows-msvc.zip\` (Windows), \`game_controller-${version}-<target>.tar.bz2\` (Linux, with install and uninstall scripts).
+- **GameController:** \`GameController-${version}.dmg\` (macOS, universal), \`GameController-${version}-x86_64-pc-windows-msvc.zip\` (Windows), \`GameController-${version}-<target>.tar.bz2\` (Linux, with install and uninstall scripts).
 - **C/C++ API** (e.g. for simulators): \`game_controller_api-${version}-<target>\` contains the shared library, the headers and the competition parameters.
 - **Log analysis tool:** \`game_controller_logs-${version}-<target>\` contains the command line tool for analyzing log files.
 

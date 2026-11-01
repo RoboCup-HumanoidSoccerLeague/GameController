@@ -64,13 +64,13 @@ It is the first of the following directories that contains a `teams.yaml`:
 
 1. The directory given with `--config-dir` (or the environment variable `GAMECONTROLLER_CONFIG`).
    If this option is used, no other directory is tried.
-2. The user's directory (`$XDG_CONFIG_HOME/GameController` or `~/.config/GameController` on Linux, `~/Library/Application Support/GameController` on macOS, `%APPDATA%\GameController` on Windows).
-3. The configuration that is shipped with the application (`<prefix>/share/game_controller/config` on Linux, inside the app bundle on macOS, `config` next to the program on Windows).
+2. The `config` directory in the user's directory (`$XDG_CONFIG_HOME/GameController` or `~/.config/GameController` on Linux, `~/Library/Application Support/GameController` on macOS, `%LOCALAPPDATA%\GameController` on Windows).
+3. The configuration that is shipped with the application (`<prefix>/share/GameController/config` on Linux, inside the app bundle on macOS, `config` next to the program on Windows).
 4. `config` in the root of a source checkout (this is what is used for `cargo run`).
 
 Directories are never combined, i.e. a user directory has to contain all files.
 The directory that is used is printed to the standard error output on start, `--show-paths` lists all candidates, and an error lists the directories that were tried.
-`--install-config` copies the shipped configuration to the user's directory so that it can be edited.
+`--install-config` copies the shipped configuration to the user's `config` directory so that it can be edited.
 Because it is not updated together with the application, a warning is printed when the user's configuration was created by another version.
 
 The global `teams.yaml` is a list of all teams in the HSL, their names, and their available jersey colors both for field players and goalkeepers.
@@ -112,9 +112,9 @@ The exceptions are that control messages can be configured to be sent to the lim
 The binary distributions are on the [GitHub releases page](https://github.com/RoboCup-HumanoidSoccerLeague/GameController/releases).
 
 - **Linux:** Unpack the archive and run `./install` (installs to `~/.local`, or use `--prefix /usr/local` etc.).
-  This adds `game_controller` to `bin/` and the GameController to the application menu.
-  To update, run `./install` of the new version; to remove, run `<prefix>/share/game_controller/uninstall` (`--purge` also removes configuration and logs).
-  The unpacked directory can also be run in place (`bin/game_controller`).
+  This adds `GameController` to `bin/` and the GameController to the application menu.
+  To update, run `./install` of the new version; to remove, run `<prefix>/share/GameController/uninstall` (`--purge` also removes configuration and logs).
+  The unpacked directory can also be run in place (`bin/GameController`).
 - **macOS:** Open the disk image and drag `GameController.app` to `/Applications`, then start it from there.
   The app is not notarized by Apple, so macOS refuses to open it the first time ("cannot be checked for malware").
   Open System Settings → Privacy & Security and click "Open Anyway" at the message about the GameController (or run `xattr -dr com.apple.quarantine /Applications/GameController.app` before the first start).
@@ -128,7 +128,7 @@ The binary distributions are on the [GitHub releases page](https://github.com/Ro
   Installing over an existing installation updates it.
   The unpacked directory can also be run in place (`GameController.exe`).
 
-Options that should apply on every start (e.g. `--interface en0` or `--sync`) can be written to the file `args` in the user's configuration directory (`--install-config` creates a template).
+Options that should apply on every start (e.g. `--interface en0` or `--sync`) can be written to the file `args` in the user's directory (next to `config`; `--install-config` creates a template).
 Options on the command line take precedence.
 
 If the GameController should be run from the source code, the most convenient way to do it is by executing

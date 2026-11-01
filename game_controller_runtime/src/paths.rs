@@ -6,7 +6,7 @@
 //!
 //! 1. an explicitly requested directory (`--config-dir` or `GAMECONTROLLER_CONFIG`); if this one is
 //!    given, there is no fallback,
-//! 2. the per-user directory (see [user_directory]),
+//! 2. the `config` directory in the per-user directory (see [user_config_directory]),
 //! 3. the directory that is installed or bundled next to the executable,
 //! 4. the directory of a source checkout or of the legacy archive layout, `<exe>/../../config`.
 
@@ -22,7 +22,7 @@ use anyhow::{bail, Context, Result};
 /// The name of the file that marks a directory as a configuration directory.
 const MARKER_FILE: &str = "teams.yaml";
 
-/// The name of the file in the user directory that stores the version which installed the config.
+/// The name of the file in the user's configuration directory that stores the version which installed the config.
 const VERSION_STAMP_FILE: &str = ".version";
 
 /// The name of the file in the user directory that contains persistent command line arguments.
@@ -80,16 +80,19 @@ impl Display for ResolvedConfig {
     }
 }
 
+/// This function returns the value of an environment variable as a path if it is not empty.
+fn non_empty_path(name: &str) -> Option<PathBuf> {
+    var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
 /// This function returns the per-user directory of the GameController, which contains the
-/// user's configuration and options file. It is `$XDG_CONFIG_HOME/GameController` (or
-/// `~/.config/GameController`) on Linux, `~/Library/Application Support/GameController` on macOS
-/// and `%APPDATA%\GameController` on Windows. It is `None` if the base directory is unknown.
+/// options file and the `config` directory (and the `logs` directory except on Linux). It is
+/// `$XDG_CONFIG_HOME/GameController` (or `~/.config/GameController`) on Linux,
+/// `~/Library/Application Support/GameController` on macOS and `%LOCALAPPDATA%\GameController` on
+/// Windows. It is `None` if the base directory is unknown.
 pub fn user_directory() -> Option<PathBuf> {
-    fn non_empty_path(name: &str) -> Option<PathBuf> {
-        var_os(name).filter(|v| !v.is_empty()).map(PathBuf::from)
-    }
     let base = if cfg!(target_os = "windows") {
-        non_empty_path("APPDATA")?
+        non_empty_path("LOCALAPPDATA")?
     } else if cfg!(target_os = "macos") {
         non_empty_path("HOME")?
             .join("Library")
@@ -101,6 +104,25 @@ pub fn user_directory() -> Option<PathBuf> {
             .or_else(|| non_empty_path("HOME").map(|home| home.join(".config")))?
     };
     Some(base.join("GameController"))
+}
+
+/// This function returns the directory with the user's own configuration.
+pub fn user_config_directory() -> Option<PathBuf> {
+    user_directory().map(|directory| directory.join("config"))
+}
+
+/// This function returns the directory for log files. It is in the per-user directory, except on
+/// Linux where it is `$XDG_DATA_HOME/GameController/logs` (or `~/.local/share/GameController/logs`).
+pub fn user_log_directory() -> Option<PathBuf> {
+    if cfg!(any(target_os = "windows", target_os = "macos")) {
+        user_directory().map(|directory| directory.join("logs"))
+    } else {
+        // The XDG specification requires ignoring relative paths.
+        let base = non_empty_path("XDG_DATA_HOME")
+            .filter(|p| p.is_absolute())
+            .or_else(|| non_empty_path("HOME").map(|home| home.join(".local").join("share")))?;
+        Some(base.join("GameController").join("logs"))
+    }
 }
 
 /// This function returns the explicitly requested configuration directory from the environment.
@@ -120,11 +142,11 @@ fn installed_directory(exe: &Path) -> Option<PathBuf> {
         // <bundle>/Contents/MacOS/GameController
         exe_directory.join("..").join("Resources").join("config")
     } else {
-        // <prefix>/bin/game_controller
+        // <prefix>/bin/GameController
         exe_directory
             .join("..")
             .join("share")
-            .join("game_controller")
+            .join("GameController")
             .join("config")
     })
 }
@@ -225,14 +247,15 @@ fn copy_recursively(from: &Path, to: &Path) -> Result<()> {
     Ok(())
 }
 
-/// This function copies the installed configuration to the user directory so that it can be
-/// edited, writes a version stamp and creates an options file template if there is none. It
-/// refuses to overwrite an existing user configuration.
+/// This function copies the installed configuration to the `config` directory in the user
+/// directory so that it can be edited, writes a version stamp and creates an options file template
+/// if there is none. It refuses to overwrite an existing user configuration.
 pub fn install_user_config(user: &Path, exe: &Path) -> Result<()> {
-    if user.join(MARKER_FILE).exists() {
+    let config = user.join("config");
+    if config.join(MARKER_FILE).exists() {
         bail!(
             "{} already contains a configuration, remove it first to start over",
-            user.display()
+            config.display()
         );
     }
     let candidates = config_candidates(None, None, exe);
@@ -242,8 +265,8 @@ pub fn install_user_config(user: &Path, exe: &Path) -> Result<()> {
     else {
         bail!("could not find a bundled configuration to copy");
     };
-    copy_recursively(source, user)?;
-    write(user.join(VERSION_STAMP_FILE), env!("CARGO_PKG_VERSION"))
+    copy_recursively(source, &config)?;
+    write(config.join(VERSION_STAMP_FILE), env!("CARGO_PKG_VERSION"))
         .context("could not write the version stamp")?;
     let args_file = user.join(ARGS_FILE);
     if !args_file.exists() {
@@ -252,7 +275,7 @@ pub fn install_user_config(user: &Path, exe: &Path) -> Result<()> {
     println!(
         "Copied the {origin} configuration {} to {}",
         source.display(),
-        user.display()
+        config.display()
     );
     println!(
         "Options for every start can be put in {}",

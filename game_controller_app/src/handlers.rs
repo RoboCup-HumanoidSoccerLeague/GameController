@@ -12,6 +12,7 @@ use tokio::sync::Notify;
 use game_controller_core::{action::VAction, types::Params};
 use game_controller_runtime::{
     launch::{LaunchData, LaunchSettings},
+    paths::user_log_directory,
     start_runtime, RuntimeState,
 };
 
@@ -59,12 +60,8 @@ async fn launch(settings: LaunchSettings, window: WebviewWindow, app: AppHandle)
     match async {
         // The logs are kept in a per-user directory, so that they survive removing or replacing
         // the installation, and all installations write to the same place.
-        let log_directory = app
-            .path()
-            .local_data_dir()
-            .context("could not determine the user's data directory")?
-            .join("GameController")
-            .join("logs");
+        let log_directory =
+            user_log_directory().context("could not determine the directory for logs")?;
         start_runtime(
             &config_directory.0,
             &log_directory,

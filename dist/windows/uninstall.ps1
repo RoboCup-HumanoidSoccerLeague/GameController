@@ -16,11 +16,10 @@ Remove-Item -Force -ErrorAction SilentlyContinue $Registry
 Get-NetFirewallRule -DisplayName "GameController" -ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue
 
 if ($Purge) {
-    foreach ($UserDirectory in (Join-Path $env:APPDATA "GameController"), (Join-Path $env:LOCALAPPDATA "GameController")) {
-        if (Test-Path $UserDirectory) {
-            if ((Read-Host "Remove $UserDirectory (configuration or logs)? [y/N]") -match "^[yY]") {
-                Remove-Item -Recurse -Force $UserDirectory
-            }
+    $UserDirectory = Join-Path $env:LOCALAPPDATA "GameController"
+    if (Test-Path $UserDirectory) {
+        if ((Read-Host "Remove $UserDirectory (configuration or logs)? [y/N]") -match "^[yY]") {
+            Remove-Item -Recurse -Force $UserDirectory
         }
     }
 }

@@ -6,7 +6,8 @@
 //!
 //! # Usage
 //!
-//! Create parameters with [gc_params_new] and a GameController with [gc_new]. In each simulation
+//! Create the parameters of the competition with [gc_competition_params_new] (once, they can be
+//! reused), the parameters of a game with [gc_params_new] and a GameController with [gc_new]. In each simulation
 //! step, advance the time with [gc_seek], optionally run [autoreferee::gc_autoreferee_update], and
 //! obtain the state in the format of a control message with [gc_read].
 //!
@@ -33,8 +34,8 @@ use game_controller_core::actions::{
 };
 use game_controller_core::log::NullLogger;
 use game_controller_core::types::{
-    ActionSource, GameParams, Params, PenaltyCall, SetPlay, Side, SideMapping, TeamParams,
-    TestParams,
+    ActionSource, CompetitionParams, GameParams, Params, PenaltyCall, SetPlay, Side, SideMapping,
+    TeamParams, TestParams,
 };
 use game_controller_core::GameController;
 use game_controller_msgs::{ControlMessage, CONTROL_MESSAGE_SIZE};
@@ -58,28 +59,21 @@ fn new_action(action: VAction) -> *mut VAction {
     Box::into_raw(Box::new(action))
 }
 
-/// This function creates GameController parameters.
+/// This function creates the parameters of a competition.
 ///
-/// The competition parameters are given as UTF-8 encoded YAML data (the content of a
-/// `params.yaml` file), the parameters of the game as separate arguments. The caller takes
-/// ownership of the result and must release it with [gc_params_destroy]. Returns `NULL` on error.
+/// The parameters are given as UTF-8 encoded YAML data (the content of a `params.yaml` file). The
+/// caller takes ownership of the result and must release it with [gc_competition_params_destroy].
+/// The same competition parameters can be used to create the parameters of any number of games.
+/// Returns `NULL` on error.
 ///
 /// # Safety
 ///
 /// `yaml` must be `NULL` or point to `len` readable bytes.
 #[no_mangle]
-pub unsafe extern "C" fn gc_params_new(
+pub unsafe extern "C" fn gc_competition_params_new(
     yaml: *const u8,
     len: usize,
-    home: Option<&TeamParams>,
-    away: Option<&TeamParams>,
-    kick_off_side: Side,
-    side_mapping: SideMapping,
-    test_params: TestParams,
-) -> *mut Params {
-    let (Some(home), Some(away)) = (non_null(home, "home"), non_null(away, "away")) else {
-        return null_mut();
-    };
+) -> *mut CompetitionParams {
     if yaml.is_null() {
         set_last_error("yaml must not be NULL");
         return null_mut();
@@ -91,15 +85,53 @@ pub unsafe extern "C" fn gc_params_new(
             return null_mut();
         }
     };
-    let competition = match serde_yaml::from_str(yaml) {
-        Ok(competition) => competition,
+    match serde_yaml::from_str::<CompetitionParams>(yaml) {
+        Ok(competition) => Box::into_raw(Box::new(competition)),
         Err(error) => {
             set_last_error(format!("could not parse competition params: {error}"));
-            return null_mut();
+            null_mut()
         }
+    }
+}
+
+/// This function destroys the parameters of a competition.
+///
+/// Parameters that were created from them with [gc_params_new] stay valid.
+///
+/// # Safety
+///
+/// `competition` must be `NULL` or have been returned by [gc_competition_params_new]. It must not
+/// be used afterwards.
+#[no_mangle]
+pub unsafe extern "C" fn gc_competition_params_destroy(competition: *mut CompetitionParams) {
+    if !competition.is_null() {
+        drop(unsafe { Box::from_raw(competition) });
+    }
+}
+
+/// This function creates GameController parameters.
+///
+/// The parameters of the competition are copied, so they stay valid and may be used for further
+/// calls (or be destroyed). The caller takes ownership of the result and must release it with
+/// [gc_params_destroy]. Returns `NULL` on error.
+#[no_mangle]
+pub extern "C" fn gc_params_new(
+    competition: Option<&CompetitionParams>,
+    home: Option<&TeamParams>,
+    away: Option<&TeamParams>,
+    kick_off_side: Side,
+    side_mapping: SideMapping,
+    test_params: TestParams,
+) -> *mut Params {
+    let (Some(competition), Some(home), Some(away)) = (
+        non_null(competition, "competition"),
+        non_null(home, "home"),
+        non_null(away, "away"),
+    ) else {
+        return null_mut();
     };
     Box::into_raw(Box::new(Params {
-        competition,
+        competition: competition.clone(),
         game: GameParams {
             teams: enum_map::enum_map! {
                 Side::Home => home.clone(),

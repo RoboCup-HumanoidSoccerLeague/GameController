@@ -2,7 +2,10 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use anyhow::Result;
 use bytes::{Bytes, BytesMut};
-use tokio::{net::UdpSocket, sync::broadcast};
+use tokio::{
+    net::UdpSocket,
+    sync::broadcast::{self, error::RecvError},
+};
 
 use game_controller_msgs::STATUS_MESSAGE_FORWARD_PORT;
 
@@ -43,7 +46,12 @@ impl StatusMessageForwarder {
     /// ignored because the network might change and we shouldn't crash in that case.
     pub async fn run(&mut self) -> Result<()> {
         loop {
-            let (source, buffer) = self.message_receiver.recv().await?;
+            let (source, buffer) = match self.message_receiver.recv().await {
+                Ok(message) => message,
+                // If we could not keep up, the missed messages are dropped.
+                Err(RecvError::Lagged(_)) => continue,
+                Err(RecvError::Closed) => return Ok(()),
+            };
             let prefixed_buffer = match source {
                 IpAddr::V4(ip) => {
                     let octets = ip.octets();

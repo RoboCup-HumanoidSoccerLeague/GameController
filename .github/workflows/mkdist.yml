@@ -41,8 +41,15 @@ jobs:
             base64 --decode <<<"${MACOS_CERTIFICATE}" >"${RUNNER_TEMP}/signing.p12"
             security import "${RUNNER_TEMP}/signing.p12" -k "${keychain}" -P "${MACOS_CERTIFICATE_PASSWORD}" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple: -s -k ci "${keychain}"
+            # Tools that look for identities only search the keychains in the search list.
+            security list-keychains -d user -s "${keychain}" $(security list-keychains -d user | tr -d '"')
+            security find-identity -p codesigning "${keychain}"
             export CODESIGN_KEYCHAIN="${keychain}"
             export CODESIGN_IDENTITY="$(security find-identity -p codesigning "${keychain}" | sed -n 's/^ *1) \([0-9A-F]*\) .*/\1/p')"
+            if [ -z "${CODESIGN_IDENTITY}" ]; then
+              echo "::error::No code signing identity found in the imported certificate"
+              exit 1
+            fi
           fi
           dist/mkdist "${GITHUB_REF_NAME}"
       - if: ${{ startsWith(matrix.os, 'ubuntu') }}

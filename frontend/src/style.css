@@ -39,6 +39,16 @@
 
 body {
   overflow: hidden;
+  /* This is an application, not a document: text is not selectable by clicking or dragging. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Text inputs (if there are any) are the exception. */
+input:is([type="text"], [type="search"], [type="number"], [type="password"], :not([type])),
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* The application manages selection itself, so the (theme-dependent) focus frame is not wanted. */

@@ -115,9 +115,13 @@ The binary distributions are on the [GitHub releases page](https://github.com/Ro
   This adds `game_controller` to `bin/` and the GameController to the application menu.
   To update, run `./install` of the new version; to remove, run `<prefix>/share/game_controller/uninstall` (`--purge` also removes configuration and logs).
   The unpacked directory can also be run in place (`bin/game_controller`).
-- **macOS:** Open the disk image and drag `GameController.app` to `/Applications` before starting it (starting from the disk image or the Downloads folder makes macOS move the app to a temporary location, which confuses the firewall).
-  The app requires macOS 15 or later and is signed with a self-signed certificate (not notarized), so macOS asks for confirmation on the first start (right-click, Open, or `xattr -dr com.apple.quarantine /Applications/GameController.app`), and the firewall asks whether to allow incoming connections (and macOS whether to allow access to the local network).
-  Running `/Applications/GameController.app/Contents/Resources/allow-firewall` in a terminal (it asks for the administrator password) sets up the firewall in advance, e.g. before an event.
+- **macOS:** Open the disk image and drag `GameController.app` to `/Applications`, then start it from there.
+  The app is not notarized by Apple, so macOS refuses to open it the first time ("cannot be checked for malware").
+  Open System Settings → Privacy & Security and click "Open Anyway" at the message about the GameController (or run `xattr -dr com.apple.quarantine /Applications/GameController.app` before the first start).
+  This has to be repeated after each update.
+  When the first broadcast packet from a robot arrives (e.g. a team message), macOS asks whether the GameController may use the local network; allow it.
+  If the firewall is enabled, it asks to allow incoming connections as well.
+  To allow it beforehand (e.g. before an event), run `/Applications/GameController.app/Contents/Resources/allow-firewall`.
   To update, replace the app; to remove, move it to the trash (and `~/Library/Application Support/GameController` if you want to remove configuration and logs).
 - **Windows:** Unpack the archive and run `install.ps1` (right-click, Run with PowerShell) to install for the current user with a Start menu entry.
   `uninstall.ps1` (or Apps & Features) removes it.

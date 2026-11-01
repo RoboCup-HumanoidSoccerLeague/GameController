@@ -11,5 +11,8 @@ if [ ! -d "${app}" ]; then
   exit 1
 fi
 
+# The firewall keeps its entries per executable (that is what its dialog and --listapps use), so
+# the path to the executable in the bundle is needed here, not the one of the bundle.
+executable="${app}/Contents/MacOS/GameController"
 firewall=/usr/libexec/ApplicationFirewall/socketfilterfw
-sudo "${firewall}" --add "${app}" && sudo "${firewall}" --unblockapp "${app}"
+sudo "${firewall}" --add "${executable}" && sudo "${firewall}" --unblockapp "${executable}"

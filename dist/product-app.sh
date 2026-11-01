@@ -75,24 +75,28 @@ stage_app_macos() {
   cp "${basedir}/game_controller_app/icons/icon.icns" "${appdir}/Contents/Resources/GameController.icns"
 
   local short_version="${version%%-*}"
+  local copyright
+  copyright="$(sed -n 's/^\(Copyright.*\)$/\1/p' "${basedir}/LICENSE" | head -n 1)"
   cat >"${appdir}/Contents/Info.plist" <<END
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleExecutable</key>
 	<string>GameController</string>
 	<key>CFBundleIconFile</key>
 	<string>GameController.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>${app_id}</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>GameController</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>${short_version}</string>
-	<key>CFBundleVersion</key>
 	<string>${short_version}</string>
 	<key>CFBundleSignature</key>
 	<string>RGC3</string>
@@ -100,14 +104,20 @@ stage_app_macos() {
 	<array>
 		<string>MacOSX</string>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>${short_version}</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>${archpref}
 	<key>NSHighResolutionCapable</key>
 	<true/>
-	<key>NSPrincipalClass</key>
-	<string>NSApplication</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>${copyright}</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>The GameController uses the local network to communicate with players and monitoring applications.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>
 END

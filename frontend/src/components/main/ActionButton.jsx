@@ -1,11 +1,10 @@
 import { applyAction } from "../../api.js";
+import { BUTTON_CLASSES, buttonStateClasses } from "../buttonClasses.js";
 
 const ActionButton = ({ action, active, label, legal }) => {
   return (
     <button
-      className={`w-full h-full px-2 py-2 rounded-md border border-gray-600 ${
-        active ? "bg-gray-300" : legal ? "" : "text-gray-500 bg-gray-100"
-      }`}
+      className={`w-full h-full px-2 py-1 ${BUTTON_CLASSES} ${buttonStateClasses({ active, legal })}`}
       disabled={!legal}
       onClick={
         action ? (typeof action === "function" ? action : () => applyAction(action)) : () => {}

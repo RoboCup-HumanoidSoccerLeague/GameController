@@ -1,5 +1,6 @@
 import { CheckIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { formatMMSS } from "../../utils.js";
+import { BUTTON_CLASSES } from "../buttonClasses.js";
 
 const bgClasses = {
   red: "bg-red-100",
@@ -55,7 +56,7 @@ const PlayerButton = ({ color, legal, sign, onClick, player }) => {
 
   return (
     <button
-      className={`grow rounded-md border border-gray-600 ${bgClasses[color]} ${
+      className={`grow ${BUTTON_CLASSES} ${bgClasses[color]} ${
         shouldFlash ? "animate-flash-bg" : ""
       } ${legal ? "" : "text-gray-500"}`}
       disabled={!legal}
@@ -85,7 +86,7 @@ const PlayerButton = ({ color, legal, sign, onClick, player }) => {
         {player ? (
           <>
             <ConnectionStatusIndicatorIcon connectionStatus={player.connectionStatus} />
-            <p className="text-3xl tabular-nums">{player.number}</p>
+            <p className="text-figure tabular-nums">{player.number}</p>
           </>
         ) : (
           <></>

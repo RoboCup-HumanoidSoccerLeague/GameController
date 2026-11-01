@@ -1,8 +1,10 @@
+import { Field, selectClasses } from "./Field";
+
 const CompetitionSettings = ({ competitions, competition, setCompetition }) => {
   return (
-    <div className="flex flex-row items-center gap-2">
-      <label htmlFor="competition">Competition</label>
+    <Field id="competition" label="Competition">
       <select
+        className={selectClasses()}
         value={competition.id}
         id="competition"
         onChange={(e) => setCompetition({ ...competition, id: e.target.value })}
@@ -13,7 +15,7 @@ const CompetitionSettings = ({ competitions, competition, setCompetition }) => {
           </option>
         ))}
       </select>
-    </div>
+    </Field>
   );
 };
 

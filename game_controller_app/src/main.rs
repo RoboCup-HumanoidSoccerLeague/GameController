@@ -160,7 +160,7 @@ fn main() {
             let _window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                     .center()
-                    .inner_size(640.0, 480.0)
+                    .inner_size(640.0, 560.0)
                     .resizable(false)
                     .title("GameController")
                     .build()?;

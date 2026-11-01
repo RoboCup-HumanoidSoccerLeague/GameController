@@ -1,7 +1,10 @@
-const TeamColorSelector = ({ colors, color, setColor, isColorLegal }) => {
+import { selectClasses } from "./Field";
+
+const TeamColorSelector = ({ id, colors, color, setColor, isColorLegal }) => {
   return (
     <select
-      className={`border-2 ${isColorLegal ? "" : "border-red-600"}`}
+      className={selectClasses(isColorLegal)}
+      id={id}
       value={color}
       onChange={(e) => setColor(e.target.value)}
     >

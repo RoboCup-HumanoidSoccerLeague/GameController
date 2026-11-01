@@ -21,6 +21,14 @@
 }
 
 @theme {
+  /* The type scale of the main window; everything else uses Tailwind's default sizes. */
+  --text-clock: 6rem;
+  --text-clock--line-height: 1;
+  --text-heading: 1.5rem;
+  --text-heading--line-height: 2rem;
+  --text-figure: 2rem;
+  --text-figure--line-height: 2.5rem;
+
   --animate-flash-text: flash-text 1s step-start 0s infinite;
   --animate-flash-bg: flash-bg 1s step-start 0s infinite;
 
@@ -35,6 +43,23 @@
       background-color: #facc15;
     }
   }
+}
+
+html {
+  font-size: clamp(16px, min(1.1vw, 1.9vh), 40px);
+}
+
+/* Vertical rhythm of the main window. The team panels and the center panel are separate subtrees,
+   so their rows only line up (free kick buttons with the state buttons, penalty buttons with the
+   player buttons) because all heights involved are fixed or derived from these values:
+   - the team header is as tall as the clock panel minus the two button rows above the free kicks,
+   - the state buttons are as tall as the two rows of free kick buttons. */
+:root {
+  --gap: 0.5rem;
+  --row-h: 4rem;
+  --clock-h: 11rem;
+  --state-h: calc(2 * var(--row-h) + var(--gap));
+  --team-header-h: calc(var(--clock-h) + var(--gap) - 2 * var(--row-h) - 3 * var(--gap));
 }
 
 body {

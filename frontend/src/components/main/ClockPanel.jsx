@@ -50,11 +50,11 @@ const getStateDescription = (game) => {
 
 const ClockPanel = ({ game, legalGameActions }) => {
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center h-(--clock-h)">
       <p className="h-6">{getPhaseDescription(game)}</p>
       <div className="relative">
         <p
-          className={`tabular-nums text-8xl font-medium ${
+          className={`tabular-nums text-clock font-medium ${
             game.primaryTimer.started
               ? game.primaryTimer.started.remaining[0] < 10
                 ? "animate-flash-text"
@@ -77,7 +77,7 @@ const ClockPanel = ({ game, legalGameActions }) => {
         </div>
       </div>
       <p className="h-6">{getStateDescription(game)}</p>
-      <p className={`tabular-nums text-2xl ${game.secondaryTimer.started ? "" : "invisible"}`}>
+      <p className={`tabular-nums text-heading ${game.secondaryTimer.started ? "" : "invisible"}`}>
         {formatMMSS(game.secondaryTimer)}
       </p>
     </div>

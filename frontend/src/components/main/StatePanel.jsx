@@ -206,7 +206,9 @@ const StatePanel = ({ game, params, legalGameActions }) => {
   );
 
   return (
-    <div className="grid grid-cols-5 auto-rows-fr gap-2">
+    // The height is fixed (two rows like the free kick buttons), so it doesn't depend on whether a
+    // label (e.g. Referee Timeout) wraps for the current width.
+    <div className="grid grid-cols-5 auto-rows-fr gap-(--gap) h-(--state-h)">
       {stopResumeButton}
       {secondHalfButton}
       {penaltyShootoutButtons}

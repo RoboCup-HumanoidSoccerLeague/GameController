@@ -1,9 +1,9 @@
+import { BUTTON_CLASSES, buttonStateClasses } from "../buttonClasses.js";
+
 const PenaltyButton = ({ label, legal, onClick, selected }) => {
   return (
     <button
-      className={`rounded-md border border-gray-600 ${
-        selected ? "bg-gray-300" : legal ? "" : "text-gray-500 bg-gray-100"
-      }`}
+      className={`${BUTTON_CLASSES} ${buttonStateClasses({ active: selected, legal })}`}
       disabled={!legal}
       onClick={onClick}
     >

@@ -11,7 +11,7 @@ const CenterPanel = ({
   setSelectedPenaltyCall,
 }) => {
   return (
-    <div className="grow flex flex-col gap-4">
+    <div className="grow-[2] flex flex-col gap-(--gap)">
       <ClockPanel game={game} legalGameActions={legalGameActions} />
       <StatePanel game={game} params={params} legalGameActions={legalGameActions} />
       <PenaltyPanel

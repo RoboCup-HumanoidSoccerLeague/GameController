@@ -26,7 +26,7 @@ const SELECT_STATE_PSO_PLAYER = 5;
 
 const TeamHeader = ({ color, isKicking, name }) => {
   return (
-    <div className="flex items-center justify-center gap-2">
+    <div className="flex items-center justify-center gap-2 h-(--team-header-h)">
       <svg
         className={`${isKicking ? "" : "invisible"} text-black`}
         fill="currentColor"
@@ -35,7 +35,7 @@ const TeamHeader = ({ color, isKicking, name }) => {
       >
         <circle cx="7" cy="7" r="7" />
       </svg>
-      <h1 className={`text-center text-2xl font-semibold ${textClasses[color]}`}>{name}</h1>
+      <h1 className={`text-center text-heading font-semibold ${textClasses[color]}`}>{name}</h1>
     </div>
   );
 };
@@ -45,7 +45,7 @@ const TeamStats = ({ game, side, sign, team }) => {
     <dl className="flex-1">
       <dt className="sr-only">Score</dt>
       <dd
-        className={`font-bold text-4xl ${sign > 0 ? "text-right" : "text-left"} tabular-nums ${
+        className={`font-bold text-figure ${sign > 0 ? "text-right" : "text-left"} tabular-nums ${
           team.illegalCommunication ? "text-fuchsia-400" : ""
         }`}
       >
@@ -54,12 +54,14 @@ const TeamStats = ({ game, side, sign, team }) => {
 
       {game.phase === "penaltyShootout" ? (
         <>
-          <dt>Shot{game.kickingSide === side ? "" : "s"}:</dt>
+          <dt className="text-gray-600">Shot{game.kickingSide === side ? "" : "s"}:</dt>
           <dd className="tabular-nums text-right">{team.penaltyShot}</dd>
         </>
       ) : (
         <>
-          <dt className={team.illegalCommunication ? "text-fuchsia-400" : ""}>Messages:</dt>
+          <dt className={team.illegalCommunication ? "text-fuchsia-400" : "text-gray-600"}>
+            Messages:
+          </dt>
           <dd
             className={`tabular-nums text-right ${
               team.illegalCommunication ? "text-fuchsia-400" : ""
@@ -70,7 +72,7 @@ const TeamStats = ({ game, side, sign, team }) => {
         </>
       )}
 
-      <dt>Penalties:</dt>
+      <dt className="text-gray-600">Penalties:</dt>
       <dd className="tabular-nums text-right">{team.penaltyCounter}</dd>
     </dl>
   );
@@ -185,13 +187,13 @@ const TeamPanel = ({
   const innerColumn = sign > 0 ? "col-start-3" : "col-start-1";
 
   return (
-    <div className="min-w-[290px] flex flex-col gap-2">
+    <div className="min-w-[18.125rem] basis-[18.125rem] max-w-[24rem] grow flex flex-col gap-(--gap)">
       <TeamHeader
         color={teamParams.fieldPlayerColor}
         isKicking={game.kickingSide === side}
         name={teamNames[side]}
       />
-      <div className="grid grid-flow-col grid-rows-4 auto-cols-fr gap-2">
+      <div className="grid grid-flow-col grid-rows-[repeat(4,var(--row-h))] auto-cols-[minmax(0,1fr)] gap-(--gap)">
         <div className={outerColumn}>
           <ActionButton
             action={() => {

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import CompetitionSettings from "./launcher/CompetitionSettings";
 import GameSettings from "./launcher/GameSettings";
-import NetworkSettings from "./launcher/NetworkSettings";
+import { CastingSettings, InterfaceSettings } from "./launcher/NetworkSettings";
+import TestSettings from "./launcher/TestSettings";
 import WindowSettings from "./launcher/WindowSettings";
+import { BUTTON_CLASSES, buttonStateClasses } from "./buttonClasses";
 import { getLaunchData, launch } from "../api";
 
 const Launcher = ({ setLaunched }) => {
@@ -65,34 +67,59 @@ const Launcher = ({ setLaunched }) => {
     const teamsInThisCompetition = teams.filter((team) =>
       thisCompetition.teams.includes(team.number),
     );
+    const setNetwork = (network) => setLaunchSettings({ ...launchSettings, network: network });
     return (
-      <div className="flex flex-col items-center p-4 gap-2">
-        <CompetitionSettings
-          competitions={competitions}
-          competition={launchSettings.competition}
-          setCompetition={setCompetition}
-        />
-        <GameSettings
-          teams={teamsInThisCompetition}
-          game={launchSettings.game}
-          setGame={(game) => setLaunchSettings({ ...launchSettings, game: game })}
-        />
-        <WindowSettings
-          window={launchSettings.window}
-          setWindow={(window) => setLaunchSettings({ ...launchSettings, window: window })}
-        />
-        <NetworkSettings
-          interfaces={networkInterfaces}
-          network={launchSettings.network}
-          setNetwork={(network) => setLaunchSettings({ ...launchSettings, network: network })}
-        />
-        <button
-          className="px-8 py-2 rounded-md border border-black disabled:bg-slate-400"
-          disabled={!launchSettingsAreLegal}
-          onClick={() => launch(launchSettings).then(() => setLaunched(true))}
-        >
-          Start
-        </button>
+      <div className="flex h-screen overflow-auto">
+        <div className="m-auto flex h-full max-h-[35rem] min-h-max w-full max-w-[40rem] flex-col gap-3 p-4">
+          <CompetitionSettings
+            competitions={competitions}
+            competition={launchSettings.competition}
+            setCompetition={setCompetition}
+          />
+          <GameSettings
+            teams={teamsInThisCompetition}
+            game={launchSettings.game}
+            setGame={(game) => setLaunchSettings({ ...launchSettings, game: game })}
+          />
+          <div className="grid grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2">
+            <div className="col-start-1">
+              <InterfaceSettings
+                interfaces={networkInterfaces}
+                network={launchSettings.network}
+                setNetwork={setNetwork}
+              />
+            </div>
+            <div className="col-start-3">
+              <WindowSettings
+                window={launchSettings.window}
+                setWindow={(window) => setLaunchSettings({ ...launchSettings, window: window })}
+              />
+            </div>
+            <div className="col-start-1 h-[5.5rem]">
+              <CastingSettings network={launchSettings.network} setNetwork={setNetwork} />
+            </div>
+            <div className="col-start-3 h-[5.5rem]">
+              <TestSettings
+                test={launchSettings.game.test}
+                setTest={(test) =>
+                  setLaunchSettings({
+                    ...launchSettings,
+                    game: { ...launchSettings.game, test: test },
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="flex flex-row justify-center">
+            <button
+              className={`px-8 py-2 text-xl font-semibold ${BUTTON_CLASSES} ${buttonStateClasses({ legal: launchSettingsAreLegal })}`}
+              disabled={!launchSettingsAreLegal}
+              onClick={() => launch(launchSettings).then(() => setLaunched(true))}
+            >
+              Start
+            </button>
+          </div>
+        </div>
       </div>
     );
   } else {

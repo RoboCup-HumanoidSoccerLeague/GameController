@@ -1,7 +1,9 @@
+import { Field } from "./Field";
 import TeamColorSelector from "./TeamColorSelector";
 import TeamSelector from "./TeamSelector";
 
 const TeamSettings = ({
+  side,
   teams,
   team,
   setTeam,
@@ -20,32 +22,35 @@ const TeamSettings = ({
   };
   const teamOptions = teams.find((t) => t.number === team.number);
   return (
-    <div className="flex flex-col gap-2">
-      <TeamSelector
-        teams={teams}
-        number={team.number}
-        setNumber={setNumber}
-        isTeamLegal={isTeamLegal}
-      />
-      <div className="flex flex-row gap-2">
-        <div className="flex flex-col gap-1">
-          <label>Field Player Color</label>
+    <div className="flex flex-1 flex-col justify-evenly gap-2">
+      <Field id={`${side}-team`} label="Team">
+        <TeamSelector
+          id={`${side}-team`}
+          teams={teams}
+          number={team.number}
+          setNumber={setNumber}
+          isTeamLegal={isTeamLegal}
+        />
+      </Field>
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+        <Field id={`${side}-field-player-color`} label="Field Player Color">
           <TeamColorSelector
+            id={`${side}-field-player-color`}
             colors={teamOptions.fieldPlayerColors}
             color={team.fieldPlayerColor}
             setColor={(color) => setTeam({ ...team, fieldPlayerColor: color })}
             isColorLegal={isFieldPlayerColorLegal}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label>Goalkeeper Color</label>
+        </Field>
+        <Field id={`${side}-goalkeeper-color`} label="Goalkeeper Color">
           <TeamColorSelector
+            id={`${side}-goalkeeper-color`}
             colors={teamOptions.goalkeeperColors}
             color={team.goalkeeperColor}
             setColor={(color) => setTeam({ ...team, goalkeeperColor: color })}
             isColorLegal={isGoalkeeperColorLegal}
           />
-        </div>
+        </Field>
       </div>
     </div>
   );

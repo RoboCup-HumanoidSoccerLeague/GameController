@@ -1,7 +1,10 @@
-const TeamSelector = ({ teams, number, setNumber, isTeamLegal }) => {
+import { selectClasses } from "./Field";
+
+const TeamSelector = ({ id, teams, number, setNumber, isTeamLegal }) => {
   return (
     <select
-      className={`w-full border-2 ${isTeamLegal ? "" : "border-red-600"}`}
+      className={selectClasses(isTeamLegal)}
+      id={id}
       value={number}
       onChange={(e) => setNumber(parseInt(e.target.value))}
     >

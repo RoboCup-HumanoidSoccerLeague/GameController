@@ -1,33 +1,36 @@
+import { CheckboxField } from "./Field";
+import Section from "./Section";
 import TeamSettings from "./TeamSettings";
-import TestSettings from "./TestSettings";
 
 const GameSettings = ({ teams, game, setGame }) => {
+  const mirrored = game.sideMapping === "homeDefendsRightGoal";
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div
-        className={`flex ${
-          game.sideMapping === "homeDefendsRightGoal" ? "flex-row-reverse" : "flex-row"
-        } gap-6`}
-      >
-        {[
-          ["home", "away"],
-          ["away", "home"],
-        ].map(([side, other]) => {
-          return (
-            <div className="flex flex-col items-center gap-2" key={side}>
-              <div className="flex flex-row items-center gap-2">
-                <label htmlFor={`kick-off-${side}`}>Kick-off for {side} team</label>
-                <input
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_5rem_minmax(0,1fr)] gap-3">
+      {[
+        ["home", "away"],
+        ["away", "home"],
+      ].map(([side, other]) => {
+        return (
+          <div
+            className="flex min-w-0"
+            // The middle column is reserved for the mirror checkbox.
+            style={{ order: (side === "home") === mirrored ? 3 : 1 }}
+            key={side}
+          >
+            <Section
+              title={side === "home" ? "Home" : "Away"}
+              action={
+                <CheckboxField
                   type="radio"
-                  checked={game.kickOffSide === side}
                   id={`kick-off-${side}`}
-                  value={side}
-                  onChange={(e) => {
-                    setGame({ ...game, kickOffSide: e.target.value });
-                  }}
+                  label="Kick-off"
+                  checked={game.kickOffSide === side}
+                  onChange={() => setGame({ ...game, kickOffSide: side })}
                 />
-              </div>
+              }
+            >
               <TeamSettings
+                side={side}
                 teams={teams}
                 team={game.teams[side]}
                 setTeam={(team) =>
@@ -45,16 +48,19 @@ const GameSettings = ({ teams, game, setGame }) => {
                   game.teams[side].goalkeeperColor != game.teams[other].fieldPlayerColor
                 }
               />
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex flex-row items-center gap-2">
-        <label htmlFor="mirror">Mirror (home team starts on right side)</label>
-        <input
-          type="checkbox"
-          checked={game.sideMapping === "homeDefendsRightGoal"}
+            </Section>
+          </div>
+        );
+      })}
+      <div className="flex flex-col items-center justify-center gap-1" style={{ order: 2 }}>
+        <span aria-hidden="true" className="text-2xl leading-none">
+          ⇄
+        </span>
+        <CheckboxField
           id="mirror"
+          label="Mirror"
+          title="Swap the sides: the home team starts on the right"
+          checked={mirrored}
           onChange={(e) =>
             setGame({
               ...game,
@@ -63,7 +69,6 @@ const GameSettings = ({ teams, game, setGame }) => {
           }
         />
       </div>
-      <TestSettings test={game.test} setTest={(test) => setGame({ ...game, test: test })} />
     </div>
   );
 };

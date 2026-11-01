@@ -1,14 +1,17 @@
+import { CheckboxField, CONTROL_BOX_CLASSES, Field } from "./Field";
+
 const WindowSettings = ({ window, setWindow }) => {
   return (
-    <div className="flex flex-row items-center gap-2">
-      <label htmlFor="fullscreen">Fullscreen</label>
-      <input
-        type="checkbox"
-        checked={window.fullscreen}
-        id="fullscreen"
-        onChange={(e) => setWindow({ ...window, fullscreen: e.target.checked })}
-      />
-    </div>
+    <Field label="Window">
+      <div className={`flex items-center border-transparent ${CONTROL_BOX_CLASSES}`}>
+        <CheckboxField
+          id="fullscreen"
+          label="Fullscreen"
+          checked={window.fullscreen}
+          onChange={(e) => setWindow({ ...window, fullscreen: e.target.checked })}
+        />
+      </div>
+    </Field>
   );
 };
 

@@ -17,9 +17,11 @@ cargo run -p game_controller_logs -- statistics [--header] <log.yaml>...   # or:
 
 `dist/mkdist --stage-only --only api [<target>]` (`mkdist.ps1 -StageOnly -Only api` on Windows) builds the C API (`game_controller_api`) and leaves the shared library, headers and competition params in `dist/game_controller_api-<version>-<target>/` (on macOS without a target, the library is universal).
 
+The Python bindings (`game_controller_py`) are a separate Cargo workspace (excluded from the root, own `Cargo.lock` and `target/`), so `cargo … --workspace` doesn't cover them. Use `cargo clippy/fmt --manifest-path game_controller_py/Cargo.toml` and, in a virtualenv, `maturin develop -m game_controller_py/Cargo.toml` (or `maturin build -r …` for an abi3 wheel).
+
 The only tests are the path/options-file tests of `game_controller_runtime` and the action-index test of `game_controller_app` (`cargo test --workspace`). `libclang` is required (bindgen in `game_controller_msgs`). Distributions are built into `dist/` by `dist/mkdist [--only app,api,logs] [--stage-only] [<target>]` (the version is the one in `Cargo.toml`; `mkdist.ps1` on Windows) using the `release-dist` profile. `dist/lib.sh`/`lib.ps1` hold shared functions; each product has `stage_<product>` (creates the directory: Linux prefix tree with `dist/linux/{install,uninstall}`, macOS `.app` in a dmg folder, packed with dmgbuild from a venv using `dist/macos/dmg-settings.py`, Windows folder with `dist/windows/{install,uninstall}.ps1`) and `pack_<product>` (archive/dmg) in `dist/product-<product>.sh`. (CI: `.github/workflows/mkdist.yml`, job `dist` on all runners, triggered on `v*` tags; on tags, the `release` job creates a draft GitHub release with all archives and notes from `dist/release-notes`).
 
-Releases are described in `RELEASING.md`: SemVer with `-rc.N` release candidates; `dist/bump-version <version>` sets the version in `Cargo.toml` (the only place it is defined), updates the lock file, commits "Version X" and creates a lightweight tag.
+Releases are described in `RELEASING.md`: SemVer with `-rc.N` release candidates; `dist/bump-version <version>` sets the version in `Cargo.toml` and `game_controller_py/Cargo.toml`, updates the lock file, commits "Version X" and creates a lightweight tag.
 
 ## Architecture
 
@@ -33,6 +35,7 @@ Crates, from the bottom up:
 - **game_controller_autoreferee** — automatic referee for simulators on top of the core (pure Rust; `Features` bitflags, `update(gc, world) -> Vec<Command>`).
 - **game_controller_api** — `cdylib` exposing the core as a C ABI (`gc_*` functions); cbindgen writes `headers/GameController.h` (gitignored) at build time.
 - **game_controller_logs** — CLI for analyzing YAML log files.
+- **game_controller_py** — PyO3 module `game_controller` (separate workspace, see above): mirror enums of the core types, one class per action (subclasses of `Action`), `GameController.control_message()` returns the control message bytes, `Features` is an `enum.IntFlag` generated from the Rust bitflags at import, `Autoreferee.update` returns `Command`s instead of calling callbacks. Its release profile doesn't strip (stripped extension modules fail to load on macOS).
 
 ### Actions
 

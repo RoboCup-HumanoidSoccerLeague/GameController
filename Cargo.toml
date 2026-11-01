@@ -1,5 +1,7 @@
 [workspace]
 default-members = ["game_controller_app"]
+# The Python bindings are a separate workspace (see their Cargo.toml).
+exclude = ["game_controller_py"]
 members = [
   "game_controller_api",
   "game_controller_app",

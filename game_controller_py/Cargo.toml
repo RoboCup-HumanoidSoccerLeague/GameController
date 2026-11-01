@@ -1,0 +1,31 @@
+# This crate is not a member of the root workspace, so that PyO3 (and a Python interpreter at build
+# time) is not needed to build the rest of the GameController.
+[workspace]
+
+[package]
+authors = ["Arne Hasselbring <arha@uni-bremen.de>"]
+description = "Python bindings for the GameController and the automatic referee"
+edition = "2021"
+license = "MIT"
+name = "game_controller_py"
+repository = "https://github.com/RoboCup-HumanoidSoccerLeague/GameController"
+rust-version = "1.83"
+version = "7.0.0"
+
+[dependencies]
+bytes = { version = "1.0" }
+enum-map = { version = "2.7" }
+game_controller_autoreferee = { path = "../game_controller_autoreferee" }
+game_controller_core = { path = "../game_controller_core" }
+game_controller_msgs = { path = "../game_controller_msgs" }
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+serde_yaml = { version = "0.9" }
+
+[lib]
+crate-type = ["cdylib"]
+name = "game_controller"
+
+# A Python extension module that was stripped by rustc (1.96, the default for release builds) fails
+# to load on macOS 27 ("mis-aligned LINKEDIT string pool"). Not stripping costs only a few percent.
+[profile.release]
+strip = false

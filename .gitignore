@@ -1,5 +1,6 @@
 .*.swp
 /game_controller_api/headers
+/game_controller_py/target
 /dist/*.dmg
 /dist/*.tar.bz2
 /dist/*.zip

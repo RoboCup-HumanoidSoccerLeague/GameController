@@ -7,7 +7,7 @@ The GameController uses [semantic versioning](https://semver.org) with release c
 - **Major** (`8.0.0`): Teams or tools must adapt. This includes changes of
   - the network protocol (`GAMECONTROLLER_STRUCT_VERSION` / `GAMECONTROLLER_RETURN_STRUCT_VERSION` in `RoboCupGameControlData.h`),
   - the format of `config/` files (`params.yaml`, `teams.yaml`),
-  - the C API or the command line in an incompatible way,
+  - the C or Python API or the command line in an incompatible way,
   - the rules that the GameController implements (usually once per season).
 - **Minor** (`7.1.0`): New features that don't require such changes.
 - **Patch** (`7.0.1`): Bug fixes.
@@ -16,7 +16,7 @@ Before a final version, there are release candidates (`7.1.0-rc.1`, `7.1.0-rc.2`
 
 ## Making a release
 
-The version is only defined in `Cargo.toml`. The distribution scripts read it from there, and the workflow (`dist/check-version`) refuses a tag that does not match it. Builds from commits after a release still carry the last released version until the next `dist/bump-version`; only tagged builds are distributions.
+The version is only defined in `Cargo.toml` and `game_controller_py/Cargo.toml`. The distribution scripts read it from there, and the workflow (`dist/check-version`) refuses a tag that does not match it. Builds from commits after a release still carry the last released version until the next `dist/bump-version`; only tagged builds are distributions.
 
 1. Bump the version, commit and tag (the working tree must not have uncommitted changes):
 

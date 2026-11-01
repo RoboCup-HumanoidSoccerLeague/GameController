@@ -21,8 +21,8 @@ if git rev-parse --quiet --verify "refs/tags/v${version}" >/dev/null; then
   exit 1
 fi
 
-# The version is defined in the root workspace.
-for manifest in Cargo.toml; do
+# The version is defined in the root workspace and in the separate workspace of the Python bindings.
+for manifest in Cargo.toml game_controller_py/Cargo.toml; do
   if [ "$(grep -c '^version = ' "${manifest}")" != 1 ]; then
     >&2 echo "error: expected exactly one version line in ${manifest}"
     exit 1

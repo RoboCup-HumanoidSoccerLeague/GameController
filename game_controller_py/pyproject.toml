@@ -1,0 +1,10 @@
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1.9,<2"]
+
+[project]
+description = "Python bindings for the RoboCup GameController and its automatic referee"
+dynamic = ["version"]
+name = "game-controller"
+readme = "README.md"
+requires-python = ">=3.9"

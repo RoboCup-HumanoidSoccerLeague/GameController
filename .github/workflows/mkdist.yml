@@ -22,6 +22,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - if: ${{ github.ref_type == 'tag' }}
+        shell: bash
+        run: dist/check-version "${GITHUB_REF_NAME}"
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -51,15 +54,15 @@ jobs:
               exit 1
             fi
           fi
-          dist/mkdist "${GITHUB_REF_NAME}"
+          dist/mkdist
       - if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y libayatana-appindicator3-dev libclang-dev librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev
-          dist/mkdist "${GITHUB_REF_NAME}"
+          dist/mkdist
       - if: ${{ startsWith(matrix.os, 'windows') }}
         run: |
-          dist/mkdist.ps1 "$env:GITHUB_REF_NAME"
+          dist/mkdist.ps1
       - uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.os }}
@@ -78,9 +81,6 @@ jobs:
         with:
           # The release notes need the history and the previous tags.
           fetch-depth: 0
-      - name: Check that the tag matches the version in Cargo.toml
-        run: |
-          test "${GITHUB_REF_NAME#v}" = "$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml)"
       - uses: actions/download-artifact@v7
         with:
           path: assets

@@ -4,13 +4,11 @@
 param(
     [string[]]$Only = @("app", "api", "logs"),
     [switch]$StageOnly,
-    [Parameter(Mandatory = $true, Position = 0)][string]$Version,
-    [Parameter(Position = 1)][string]$Target
+    [Parameter(Position = 0)][string]$Target
 )
 
 . $(Join-Path $PSScriptRoot "lib.ps1")
 
-$Version = $Version -replace "^v", ""
 Initialize-Target $Target
 
 $Packages = @()

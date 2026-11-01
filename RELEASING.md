@@ -16,7 +16,7 @@ Before a final version, there are release candidates (`7.1.0-rc.1`, `7.1.0-rc.2`
 
 ## Making a release
 
-The version is only defined in `Cargo.toml` (the Tauri configuration has none, so it uses this one).
+The version is only defined in `Cargo.toml` (the Tauri configuration has none, so it uses this one). The distribution scripts read it from there, and the workflow (`dist/check-version`) refuses a tag that does not match it. Builds from commits after a release still carry the last released version until the next `dist/bump-version`; only tagged builds are distributions.
 
 1. Bump the version, commit and tag (the working tree must not have uncommitted changes):
 

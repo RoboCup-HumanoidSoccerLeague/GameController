@@ -11,13 +11,14 @@ basedir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 distdir="${basedir}/dist"
 profile=release-dist
 
-# Sets version, target, label and universal from the command line arguments <version> [<target>].
-# Without a target, things are built for the host, except on macOS, where binaries are universal.
+# Sets version, target, label and universal. The version is the one in Cargo.toml, the only place
+# where it is defined (see dist/bump-version); the optional argument is the target. Without a target, things are built for the host, except on macOS, where binaries are universal.
 # The label names the platform in archive names.
 init_target() {
-  version="$(sed -e "s/^v\(.*\)/\1/" <<<"${1}")"
-  target=${2}
+  version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "${basedir}/Cargo.toml" | head -n 1)"
+  target=${1}
   if [ -z "${version}" ]; then
+    >&2 echo "error: could not read the version from Cargo.toml"
     return 1
   fi
   universal=false

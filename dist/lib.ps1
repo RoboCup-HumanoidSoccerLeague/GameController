@@ -10,7 +10,12 @@ $DistDirectory = $PSScriptRoot
 $BuildProfile = "release-dist"
 
 # Sets $Target to the given target or the host.
+# This sets the version (the one in Cargo.toml, the only place where it is defined) and the target.
 function Initialize-Target($RequestedTarget) {
+    $script:Version = (Select-String -Path $(Join-Path $BaseDirectory "Cargo.toml") -Pattern '^version = "(.*)"$' | Select-Object -First 1).Matches.Groups[1].Value
+    if (-not $script:Version) {
+        throw "could not read the version from Cargo.toml"
+    }
     if ($RequestedTarget) {
         $script:Target = $RequestedTarget
     } else {

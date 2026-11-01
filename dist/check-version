@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Checks that a release tag matches the version in Cargo.toml, which
+# is what the distributions are named after. Used by the workflow before building.
+
+set -e
+
+tag=${1}
+
+if [ -z "${tag}" ]; then
+  >&2 echo "usage: ${0} <tag>"
+  exit 1
+fi
+
+basedir="$(cd "$(dirname "$(which "${0}")")" && pwd)/.."
+
+for manifest in Cargo.toml; do
+  version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "${basedir}/${manifest}" | head -n 1)"
+  if [ "${tag#v}" != "${version}" ]; then
+    >&2 echo "error: tag ${tag} does not match version ${version} in ${manifest}"
+    exit 1
+  fi
+done

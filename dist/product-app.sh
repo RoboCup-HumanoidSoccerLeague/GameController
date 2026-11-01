@@ -74,6 +74,7 @@ stage_app_macos() {
   cp "${distdir}/macos/allow-firewall" "${appdir}/Contents/Resources"
   cp "${basedir}/game_controller_app/icons/icon.icns" "${appdir}/Contents/Resources/GameController.icns"
 
+  # The bundle versions must be numeric (X.Y.Z), which a release candidate is not.
   local short_version="${version%%-*}"
   local copyright
   copyright="$(sed -n 's/^\(Copyright.*\)$/\1/p' "${basedir}/LICENSE" | head -n 1)"

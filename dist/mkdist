@@ -6,7 +6,7 @@
 source "$(dirname "$(which "${0}")")/lib.sh"
 
 usage() {
-  >&2 echo "usage: ${0} [--only app,api,logs] [--stage-only] <version> [<target>]"
+  >&2 echo "usage: ${0} [--only app,api,logs] [--stage-only] [<target>]"
   exit 1
 }
 
@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
-init_target "${1}" "${2}" || usage
+init_target "${1}" || usage
 
 packages=()
 for product in ${products}; do

@@ -50,7 +50,7 @@ cargo tauri dev
 ### Creating Binary Distributions
 
 For Linux, macOS and Windows, there are scripts in the directory `dist/` to create binary distributions.
-`dist/mkdist <version> [<target>]` (`dist/mkdist.ps1` on Windows) builds archives of all products in one go:
+`dist/mkdist [<target>]` (`dist/mkdist.ps1` on Windows) builds archives of all products in one go (named after the version in `Cargo.toml`):
 the application (`app`), the C API (`api`) and the log analysis tool (`logs`).
 `--only app,api,logs` selects products, and `--stage-only` only creates the directories that the archives are made from.
 The target is optional (otherwise the host target is assumed on Linux and Windows, while macOS creates Universal binaries).

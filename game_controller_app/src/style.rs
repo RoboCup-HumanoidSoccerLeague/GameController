@@ -12,7 +12,7 @@ use eframe::egui::{
 
 use game_controller_core::types::Color;
 
-/// The Tailwind colors used by the original web UI.
+/// The color palette (the values of the Tailwind CSS palette).
 pub mod tw {
     use eframe::egui::Color32;
 
@@ -212,7 +212,7 @@ pub fn galley(
     wrap_width: f32,
     halign: Align,
 ) -> Arc<Galley> {
-    // Like the web UI, lines are 1.5 times as high as the font size.
+    // Lines are 1.5 times as high as the font size.
     let line_height = Some(font.size * 1.5);
     let mut job = LayoutJob::single_section(
         text.to_owned(),

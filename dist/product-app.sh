@@ -32,8 +32,8 @@ stage_app_linux() {
   cp "${basedir}/LICENSE" "${basedir}/README.md" "${app_dir}/share/doc/GameController"
   cp "${basedir}/game_controller_app/icons/icon.png" \
     "${app_dir}/share/icons/hicolor/512x512/apps/${app_id}.png"
-  # The Exec line is filled in by the install script. GTK names the window after the executable,
-  # which lets desktops associate it with this entry.
+  # The Exec line is filled in by the install script. The app sets its window class / app ID to
+  # GameController, which lets desktops associate it with this entry.
   cat >"${app_dir}/share/applications/${app_id}.desktop" <<END
 [Desktop Entry]
 Type=Application

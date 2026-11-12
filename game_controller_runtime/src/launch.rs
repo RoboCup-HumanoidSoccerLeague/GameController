@@ -113,7 +113,7 @@ pub struct LaunchSettings {
     pub log: LogSettings,
 }
 
-/// The bundle of data that is passed to JavaScript.
+/// The bundle of data that the launcher is created from.
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchData {

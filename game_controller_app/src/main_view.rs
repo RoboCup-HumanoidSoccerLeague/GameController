@@ -1,9 +1,8 @@
 //! This module implements the main window from which a game is operated.
 //!
-//! The layout follows the original web UI: two team panels with the center panel (clock, state
-//! buttons, penalty calls) in between and a row of undo buttons below. All sizes are multiples of
-//! a "rem" that scales with the window, like the web UI's root font size did, so that the rows of
-//! the team panels line up with those of the center panel.
+//! The layout consists of two team panels with the center panel (clock, state buttons, penalty
+//! calls) in between and a row of undo buttons below. All sizes are multiples of a "rem" that scales
+//! with the window, so that the rows of the team panels line up with those of the center panel.
 
 use std::time::Duration;
 
@@ -59,7 +58,8 @@ pub struct MainView {
 struct Rem(f32);
 
 impl Rem {
-    /// The web UI used `font-size: clamp(16px, min(1.1vw, 1.9vh), 40px)` on the root element.
+    /// The rem is 1.1% of the width or 1.9% of the height (whichever is smaller), but at least 16
+    /// and at most 40 points.
     fn for_screen(size: Vec2) -> Self {
         Self((size.x * 0.011).min(size.y * 0.019).clamp(16.0, 40.0))
     }
@@ -105,7 +105,7 @@ fn span(a: Rect, b: Rect) -> Rect {
     a.union(b)
 }
 
-/// This function formats a timer as `[-]MM:SS` (rounding up, like the web UI).
+/// This function formats a timer as `[-]MM:SS` (rounding up).
 pub fn format_mmss(timer: &Timer) -> String {
     let seconds = match timer {
         Timer::Started { remaining, .. } => ceil_seconds(*remaining),
@@ -305,8 +305,8 @@ impl MainView {
             content.max,
         );
 
-        // The flex layout of the web UI: the team panels have a basis of 18.125rem and grow half
-        // as much as the center panel, but no further than 24rem.
+        // The team panels are at least 18.125rem wide and grow half as much as the center panel,
+        // but no further than 24rem.
         let gap = r.of(1.0);
         let free = main.width() - 2.0 * gap;
         let center_basis = r.of(CENTER_BASIS);
@@ -886,9 +886,8 @@ impl MainView {
     }
 }
 
-/// The flex basis of the center panel. In the web UI, this was the max-content width of its
-/// contents, i.e. five times the widest state button ("Referee Timeout") plus padding and gaps,
-/// which was measured as about 43.5rem.
+/// The width of the center panel before it grows: roughly five state buttons wide enough for
+/// "Referee Timeout" on one line, plus padding and gaps.
 const CENTER_BASIS: f32 = 43.5;
 
 fn clock_panel(ui: &mut Ui, cx: &mut Ctx, rect: Rect) {

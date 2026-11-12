@@ -10,8 +10,6 @@ use std::{
 };
 
 use anyhow::{Context, Error, Result};
-use serde::Serialize;
-use serde_with::{serde_as, BoolFromInt};
 use time::{macros::format_description, OffsetDateTime};
 use tokio::{
     fs::create_dir_all,
@@ -52,16 +50,13 @@ use launch::{LaunchSettings, NetworkInterface, Team};
 use logger::FileLogger;
 
 /// This struct represents the state that is sent to the UI.
-#[serde_as]
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct UiState {
     /// The current connection status of all players.
     pub connection_status: ConnectionStatusMap,
     /// The game state.
     pub game: Game,
     /// The mask of legal actions in the order they were subscribed.
-    #[serde_as(as = "Vec<BoolFromInt>")]
     pub legal_actions: Vec<bool>,
     /// The list of the most recent actions that can be undone.
     pub undo_actions: Vec<VAction>,

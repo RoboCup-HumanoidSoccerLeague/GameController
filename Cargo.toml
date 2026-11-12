@@ -5,7 +5,6 @@ members = [
   "game_controller_app",
   "game_controller_autoreferee",
   "game_controller_core",
-  "game_controller_egui",
   "game_controller_msgs",
   "game_controller_logs",
   "game_controller_net",
@@ -19,6 +18,7 @@ bindgen = { version = "0.69" }
 bitflags = { version = "2.13" }
 bytes = { version = "1.0" }
 clap = { version = "4.2", features = ["derive"] }
+eframe = { version = "0.37" }
 enum-map = { version = "2.7", features = ["serde"] }
 game_controller_autoreferee = { path = "game_controller_autoreferee" }
 game_controller_core = { path = "game_controller_core" }
@@ -28,12 +28,8 @@ game_controller_runtime = { path = "game_controller_runtime" }
 network-interface = { version = "1" }
 serde = { version = "1.0", features = ["derive"] }
 serde_with = { version = "2.3", features = ["base64", "time_0_3"] }
-serde_repr = { version = "0.1" }
 serde_yaml = { version = "0.9" }
 socket2 = { version = "0.5", features = ["all"] }
-tauri = { version = "2.1", features = [] }
-tauri-build = { version = "2.0", features = [] }
-tauri-plugin-dialog = { version = "2.6" }
 time = { version = "0.3", features = ["formatting", "local-offset", "macros", "serde"] }
 tokio = { version = "1.0", features = ["fs", "io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 tokio-util = { version = "0.7" }

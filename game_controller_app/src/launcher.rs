@@ -208,7 +208,7 @@ impl Launcher {
             .filter(|team| competition.teams.contains(&team.number))
             .cloned()
             .collect();
-        // Case-insensitive, like `localeCompare` in the web UI.
+        // The teams are sorted by name, ignoring case.
         teams.sort_by_cached_key(|team| team.name.to_lowercase());
 
         for (side, rect) in [(Side::Home, home_rect), (Side::Away, away_rect)] {
@@ -479,7 +479,7 @@ fn color_field(
     });
 }
 
-/// The web UI showed the serialized (lower case) color names in the launcher.
+/// The launcher shows the color names in lower case, as they are written in the configuration.
 fn color_label(color: Color) -> String {
     style::color_name(color).to_lowercase()
 }

@@ -117,6 +117,9 @@ impl Launcher {
             .show_separator_line(false)
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
+                    if !legal {
+                        style::set_disabled(ui);
+                    }
                     let text = RichText::new("Start").font(font(20.0, Weight::SemiBold));
                     let button = Button::new(text).min_size(vec2(120.0, 46.0));
                     ui.add_enabled(legal, button).clicked()

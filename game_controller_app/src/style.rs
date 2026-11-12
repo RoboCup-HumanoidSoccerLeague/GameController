@@ -180,6 +180,8 @@ pub fn setup(ctx: &egui::Context) {
         visuals.menu_corner_radius = CornerRadius::same(6);
         visuals.window_stroke = Stroke::new(1.0, tw::GRAY_600);
         visuals.interact_cursor = Some(egui::CursorIcon::PointingHand);
+        // Disabled widgets are not faded, but drawn in gray (see [set_disabled]).
+        visuals.disabled_alpha = 1.0;
         style.spacing.interact_size.y = 28.0;
         style.spacing.button_padding = Vec2::new(8.0, 4.0);
         style.spacing.icon_width = 16.0;
@@ -199,6 +201,21 @@ pub fn setup(ctx: &egui::Context) {
             .text_styles
             .insert(egui::TextStyle::Heading, font(20.0, Weight::SemiBold));
     });
+}
+
+/// This function makes the widgets that are added to a [Ui] from now on look disabled: gray, with
+/// gray text. They must still be added with [Ui::add_enabled] to be disabled.
+pub fn set_disabled(ui: &mut Ui) {
+    let visuals = ui.visuals_mut();
+    visuals.override_text_color = Some(tw::GRAY_500);
+    for widget in [
+        &mut visuals.widgets.noninteractive,
+        &mut visuals.widgets.inactive,
+    ] {
+        widget.weak_bg_fill = tw::GRAY_100;
+        widget.bg_fill = tw::GRAY_100;
+        widget.fg_stroke.color = tw::GRAY_500;
+    }
 }
 
 /// This function returns the frame of a panel: the background with a margin, without a border.
@@ -232,6 +249,8 @@ pub fn append_tabular(
             text.chars().map(|c| fonts.glyph_width(font, c)).collect(),
         )
     });
+    // The padding after a digit becomes leading space of the next character. It can't be letter
+    // spacing, because egui adds that in front of a glyph, not behind it.
     let mut buffer = [0; 4];
     let mut leading_space = leading_space;
     for (c, width) in text.chars().zip(widths) {
@@ -242,12 +261,13 @@ pub fn append_tabular(
         };
         job.append(
             c.encode_utf8(&mut buffer),
-            std::mem::take(&mut leading_space) + padding,
-            TextFormat {
-                extra_letter_spacing: format.extra_letter_spacing + padding,
-                ..format.clone()
-            },
+            leading_space + padding,
+            format.clone(),
         );
+        leading_space = padding;
+    }
+    if leading_space > 0.0 {
+        job.append("", leading_space, format.clone());
     }
 }
 

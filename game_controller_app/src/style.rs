@@ -92,7 +92,7 @@ pub fn color_name(color: Color) -> &'static str {
 }
 
 /// The font weights that are available.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Weight {
     Regular,
     Medium,

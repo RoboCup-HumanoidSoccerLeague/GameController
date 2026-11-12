@@ -42,7 +42,7 @@ pub const NUM_OF_UNDO_ACTIONS: usize = 5;
 const SIDES: [Side; 2] = [Side::Home, Side::Away];
 
 /// The buttons of a team panel that apply an action.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TeamAction {
     Timeout,
     Goal,
@@ -93,7 +93,7 @@ impl TeamAction {
 }
 
 /// The buttons of the center panel that apply an action.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GameAction {
     SwitchHalf,
     StartExtraTime,

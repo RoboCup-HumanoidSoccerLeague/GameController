@@ -6,7 +6,7 @@ use eframe::egui::{
 };
 
 use game_controller_core::types::{Color, Side, SideMapping, TeamParams};
-use game_controller_runtime::launch::{LaunchData, LaunchSettings, Team};
+use game_controller_runtime::launch::{Competition, LaunchData, LaunchSettings, Team};
 
 use crate::style::{self, font, tw, ButtonState, Weight};
 
@@ -17,13 +17,46 @@ const DEFAULT_TEAM_NUMBER: u8 = 0;
 pub struct Launcher {
     data: LaunchData,
     settings: LaunchSettings,
+    /// The teams of the selected competition, sorted by name. This only changes with the
+    /// competition.
+    competition_teams: Vec<Team>,
+}
+
+/// This function returns a team by its number.
+fn find_team(teams: &[Team], number: u8) -> &Team {
+    teams
+        .iter()
+        .find(|team| team.number == number)
+        .expect("team must exist")
+}
+
+/// This function returns the teams of a competition, sorted by name, ignoring case.
+fn competition_teams(data: &LaunchData, competition_id: &str) -> Vec<Team> {
+    let competition: &Competition = data
+        .competitions
+        .iter()
+        .find(|c| c.id == competition_id)
+        .expect("competition must exist");
+    let mut teams: Vec<Team> = data
+        .teams
+        .iter()
+        .filter(|team| competition.teams.contains(&team.number))
+        .cloned()
+        .collect();
+    teams.sort_by_cached_key(|team| team.name.to_lowercase());
+    teams
 }
 
 impl Launcher {
     /// This function creates a launcher that starts with the default settings of the launch data.
     pub fn new(data: LaunchData) -> Self {
         let settings = data.default_settings.clone();
-        Self { data, settings }
+        let competition_teams = competition_teams(&data, &settings.competition.id);
+        Self {
+            data,
+            settings,
+            competition_teams,
+        }
     }
 
     /// The launch data that the launcher was created with.
@@ -32,11 +65,7 @@ impl Launcher {
     }
 
     fn team(&self, number: u8) -> &Team {
-        self.data
-            .teams
-            .iter()
-            .find(|team| team.number == number)
-            .expect("team must exist")
+        find_team(&self.data.teams, number)
     }
 
     /// This function returns whether the settings describe a valid game: different teams whose
@@ -54,6 +83,7 @@ impl Launcher {
         if id == self.settings.competition.id {
             return;
         }
+        self.competition_teams = competition_teams(&self.data, &id);
         self.settings.competition.id = id;
         // The default team is part of every competition.
         let default = self.team(DEFAULT_TEAM_NUMBER).clone();
@@ -102,7 +132,7 @@ impl Launcher {
         );
 
         // Competition
-        let competitions = self.data.competitions.clone();
+        let competitions = &self.data.competitions;
         let mut competition_id = self.settings.competition.id.clone();
         field(ui, competition_rect, "Competition", |ui, label| {
             let selected = competitions
@@ -111,7 +141,7 @@ impl Launcher {
                 .map(|c| c.name.clone())
                 .unwrap_or_default();
             select(ui, label, "competition", selected, true, |ui| {
-                for competition in &competitions {
+                for competition in competitions {
                     ui.selectable_value(
                         &mut competition_id,
                         competition.id.clone(),
@@ -133,12 +163,12 @@ impl Launcher {
                 rect.max,
             )
         };
-        let interfaces = self.data.network_interfaces.clone();
+        let interfaces = &self.data.network_interfaces;
         let network = &mut self.settings.network;
         field(ui, top(cols[0]), "Network Interface", |ui, label| {
             let selected = network.interface.clone();
             select(ui, label, "interface", selected, true, |ui| {
-                for interface in &interfaces {
+                for interface in interfaces {
                     ui.selectable_value(
                         &mut network.interface,
                         interface.id.clone(),
@@ -195,24 +225,8 @@ impl Launcher {
         } else {
             (cols[0], cols[2])
         };
-        let competition = self
-            .data
-            .competitions
-            .iter()
-            .find(|c| c.id == self.settings.competition.id)
-            .expect("competition must exist");
-        let mut teams: Vec<Team> = self
-            .data
-            .teams
-            .iter()
-            .filter(|team| competition.teams.contains(&team.number))
-            .cloned()
-            .collect();
-        // The teams are sorted by name, ignoring case.
-        teams.sort_by_cached_key(|team| team.name.to_lowercase());
-
         for (side, rect) in [(Side::Home, home_rect), (Side::Away, away_rect)] {
-            self.team_settings(ui, rect, side, &teams);
+            self.team_settings(ui, rect, side);
         }
 
         // The middle column holds the mirror checkbox.
@@ -252,7 +266,7 @@ impl Launcher {
         }
     }
 
-    fn team_settings(&mut self, ui: &mut Ui, rect: Rect, side: Side, teams: &[Team]) {
+    fn team_settings(&mut self, ui: &mut Ui, rect: Rect, side: Side) {
         let rem = 16.0;
         let game = &self.settings.game;
         let other = -side;
@@ -319,8 +333,9 @@ impl Launcher {
         let fp_rect = Rect::from_min_size(colors_rect.min, Vec2::new(half, field_h));
         let gk_rect = fp_rect.translate(Vec2::new(half + rem * 0.5, 0.0));
 
-        let team_params = self.settings.game.teams[side].clone();
-        let mut number = team_params.number;
+        let team_number = self.settings.game.teams[side].number;
+        let mut number = team_number;
+        let teams = &self.competition_teams;
         field(ui, team_rect, "Team", |ui, label| {
             let selected = teams
                 .iter()
@@ -337,8 +352,8 @@ impl Launcher {
                 }
             });
         });
-        if number != team_params.number {
-            let team = self.team(number).clone();
+        if number != team_number {
+            let team = self.team(number);
             self.settings.game.teams[side] = TeamParams {
                 number,
                 field_player_color: team.field_player_colors[0],
@@ -346,8 +361,8 @@ impl Launcher {
             };
         }
 
-        let team = self.team(self.settings.game.teams[side].number).clone();
         let params = &mut self.settings.game.teams[side];
+        let team = find_team(&self.data.teams, params.number);
         color_field(
             ui,
             fp_rect,

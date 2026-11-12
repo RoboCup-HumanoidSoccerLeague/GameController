@@ -16,3 +16,8 @@ enum-map = { workspace = true }
 game_controller_core = { workspace = true }
 game_controller_runtime = { workspace = true }
 tokio = { workspace = true }
+
+# The icon of the executable on Windows (shown by the Explorer, shortcuts and the list of installed
+# apps) is a resource that the build script embeds.
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"

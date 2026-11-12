@@ -4,11 +4,14 @@
 use std::{
     env::current_exe,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 
 use anyhow::{Context, Error, Result};
-use eframe::egui::{self, Vec2, ViewportCommand};
+use eframe::egui::{self, Rect, Vec2, ViewportCommand};
 
 use game_controller_core::types::Side;
 use game_controller_runtime::{
@@ -38,7 +41,10 @@ pub fn executable_path() -> Result<PathBuf> {
 /// The running game: the runtime services and the latest state they sent.
 struct Running {
     runtime_state: RuntimeState,
-    ui_state: Arc<Mutex<Option<UiState>>>,
+    /// The slot into which the runtime puts a new state. It is emptied each frame.
+    new_ui_state: Arc<Mutex<Option<UiState>>>,
+    /// The latest state that was taken out of the slot.
+    ui_state: Option<UiState>,
     view: MainView,
 }
 
@@ -54,12 +60,15 @@ pub struct App {
     runtime: tokio::runtime::Runtime,
     config_directory: PathBuf,
     screen: Screen,
+    /// This is set when the app exits from a fatal error, so that the main program can exit
+    /// with a failure status.
+    failed: Arc<AtomicBool>,
 }
 
 impl App {
     /// This function creates the app, which shows the launcher (or an error if the configuration
-    /// can't be found or is invalid).
-    pub fn new(args: Args, runtime: tokio::runtime::Runtime) -> Self {
+    /// can't be found or is invalid). `failed` is set if the app exits from a fatal error.
+    pub fn new(args: Args, runtime: tokio::runtime::Runtime, failed: Arc<AtomicBool>) -> Self {
         let mut config_directory = PathBuf::new();
         let screen = match executable_path().and_then(|exe| {
             resolve_config_directory(
@@ -92,18 +101,19 @@ impl App {
             runtime,
             config_directory,
             screen,
+            failed,
         }
     }
 
     /// This function is called when the user finishes the launcher. It starts the runtime (game
     /// state, network services, logging) and switches to the main window.
     fn launch(&mut self, ctx: &egui::Context, data: &LaunchData, settings: LaunchSettings) {
-        let ui_state = Arc::new(Mutex::new(None));
+        let new_ui_state = Arc::new(Mutex::new(None));
         let send_ui_state = {
-            let ui_state = ui_state.clone();
+            let new_ui_state = new_ui_state.clone();
             let ctx = ctx.clone();
             move |state: UiState| {
-                *ui_state.lock().unwrap() = Some(state);
+                *new_ui_state.lock().unwrap() = Some(state);
                 ctx.request_repaint();
                 Ok(())
             }
@@ -154,15 +164,21 @@ impl App {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(true));
         } else {
             ctx.send_viewport_cmd(ViewportCommand::InnerSize(MAIN_WINDOW_SIZE));
-            if let Some(monitor) = ctx.input(|i| i.viewport().monitor_size) {
-                let position = ((monitor - MAIN_WINDOW_SIZE) / 2.0).max(Vec2::ZERO);
-                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(position.to_pos2()));
+            // The window grows around its center, so that it stays on the monitor that the
+            // launcher is on (which is centered there unless the user moved it). The monitor's
+            // origin is not known, so the window can't be centered on the monitor itself.
+            let rects = ctx.input(|i| i.viewport().outer_rect.zip(i.viewport().inner_rect));
+            if let Some((outer, inner)) = rects {
+                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(
+                    main_window_rect(outer, inner).min,
+                ));
             }
         }
 
         self.screen = Screen::Running(Box::new(Running {
             runtime_state,
-            ui_state,
+            new_ui_state,
+            ui_state: None,
             view,
         }));
     }
@@ -171,6 +187,13 @@ impl App {
         eprintln!("{error:?}");
         self.screen = Screen::Error(format!("{error:#}"));
     }
+}
+
+/// This function returns the outer rectangle of the main window, given the outer and inner
+/// rectangles of the launcher window: it keeps the center and the decorations.
+fn main_window_rect(outer: Rect, inner: Rect) -> Rect {
+    let decorations = (outer.size() - inner.size()).max(Vec2::ZERO);
+    Rect::from_center_size(outer.center(), MAIN_WINDOW_SIZE + decorations)
 }
 
 impl eframe::App for App {
@@ -184,9 +207,13 @@ impl eframe::App for App {
                 }
             }
             Screen::Running(running) => {
-                let state = running.ui_state.lock().unwrap().clone();
-                if let Some(state) = state {
-                    for action in running.view.ui(ui, &state) {
+                // The lock is only held to move a new state out of the slot.
+                let new_ui_state = running.new_ui_state.lock().unwrap().take();
+                if new_ui_state.is_some() {
+                    running.ui_state = new_ui_state;
+                }
+                if let Some(state) = &running.ui_state {
+                    for action in running.view.ui(ui, state) {
                         let _ = running.runtime_state.action_sender.send(action);
                     }
                 } else {
@@ -212,9 +239,13 @@ impl eframe::App for App {
     }
 
     fn on_exit(&mut self) {
-        if let Screen::Running(running) = &self.screen {
-            self.runtime
-                .block_on(shutdown_runtime(&running.runtime_state));
+        match &self.screen {
+            Screen::Running(running) => {
+                self.runtime
+                    .block_on(shutdown_runtime(&running.runtime_state));
+            }
+            Screen::Error(_) => self.failed.store(true, Ordering::Relaxed),
+            Screen::Launcher(_) => {}
         }
     }
 }

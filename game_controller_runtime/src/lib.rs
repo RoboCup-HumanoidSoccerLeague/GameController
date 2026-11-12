@@ -39,7 +39,7 @@ use game_controller_net::{
 };
 
 pub mod cli;
-mod connection_status;
+pub mod connection_status;
 pub mod launch;
 mod logger;
 pub mod paths;
@@ -57,14 +57,14 @@ use logger::FileLogger;
 #[serde(rename_all = "camelCase")]
 pub struct UiState {
     /// The current connection status of all players.
-    connection_status: ConnectionStatusMap,
+    pub connection_status: ConnectionStatusMap,
     /// The game state.
-    game: Game,
+    pub game: Game,
     /// The mask of legal actions in the order they were subscribed.
     #[serde_as(as = "Vec<BoolFromInt>")]
-    legal_actions: Vec<bool>,
+    pub legal_actions: Vec<bool>,
     /// The list of the most recent actions that can be undone.
-    undo_actions: Vec<VAction>,
+    pub undo_actions: Vec<VAction>,
 }
 
 /// This struct encapsulates state that must be mutated.

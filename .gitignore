@@ -7,3 +7,5 @@
 /dist/GameController-*/
 /dist/game_controller*/
 /target
+/screenshots
+/tools/screenshots/node_modules

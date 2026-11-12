@@ -32,9 +32,7 @@ cargo run [-r] [-- <options>]
 
 First, thank you for contributing to development.
 
-The user interface can be driven by tools such as AI agents through
-[`egui_inspection`](https://crates.io/crates/egui_inspection) (for example with the MCP server
-[`egui_mcp`](https://crates.io/crates/egui_mcp)) when the app is built and started like this:
+The user interface can be driven by tools such as AI agents through [`egui_inspection`](https://crates.io/crates/egui_inspection) (for example with the MCP server [`egui_mcp`](https://crates.io/crates/egui_mcp)) when the app is built and started like this:
 
 ```bash
 EGUI_INSPECTION=1 cargo run --features eframe/inspection

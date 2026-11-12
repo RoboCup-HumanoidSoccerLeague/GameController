@@ -37,7 +37,7 @@ use crate::{
 
 /// The state of the player selection of a team panel (substitution, goalkeeper selection, or
 /// penalty shooter selection).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 enum SelectState {
     #[default]
     Default,

@@ -23,19 +23,6 @@ function Initialize-Target($RequestedTarget) {
     }
 }
 
-function Build-Frontend {
-    Push-Location $(Join-Path $BaseDirectory "frontend")
-    npm ci
-    if ($LASTEXITCODE -ne 0) {
-        throw "npm ci failed"
-    }
-    npm run build
-    if ($LASTEXITCODE -ne 0) {
-        throw "npm run build failed"
-    }
-    Pop-Location
-}
-
 # Builds the given cargo packages for $Target.
 function Build-Packages([string[]]$Packages) {
     $PackageArguments = $Packages | ForEach-Object { "--package"; $_ }

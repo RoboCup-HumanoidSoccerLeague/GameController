@@ -3,13 +3,12 @@
 use std::{collections::HashMap, time::Duration};
 
 use enum_map::{enum_map, EnumMap};
-use serde_repr::Serialize_repr;
 use tokio::time::Instant;
 
 use game_controller_core::types::{PlayerNumber, Side};
 
 /// This enumerates the possible values of a player's connection status.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ConnectionStatus {
     /// The player hasn't sent a status message for a long time and is probably not running.

@@ -21,8 +21,7 @@ if git rev-parse --quiet --verify "refs/tags/v${version}" >/dev/null; then
   exit 1
 fi
 
-# The version is defined in the root workspace. (The app's Tauri configuration has no version of its
-# own, so the one from Cargo.toml is used.)
+# The version is defined in the root workspace.
 for manifest in Cargo.toml; do
   if [ "$(grep -c '^version = ' "${manifest}")" != 1 ]; then
     >&2 echo "error: expected exactly one version line in ${manifest}"

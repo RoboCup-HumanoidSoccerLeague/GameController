@@ -33,9 +33,6 @@ for product in ${products}; do
   source "${distdir}/product-${product}.sh"
 done
 
-case " ${products} " in
-  *" app "*) build_frontend ;;
-esac
 build_packages "${packages[@]}"
 
 for product in ${products}; do

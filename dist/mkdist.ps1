@@ -21,9 +21,6 @@ foreach ($Product in $Only) {
     }
 }
 
-if ($Only -contains "app") {
-    Build-Frontend
-}
 Build-Packages $Packages
 
 foreach ($Product in $Only) {

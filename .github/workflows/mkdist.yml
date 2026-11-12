@@ -25,9 +25,6 @@ jobs:
       - if: ${{ github.ref_type == 'tag' }}
         shell: bash
         run: dist/check-version "${GITHUB_REF_NAME}"
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
       - if: ${{ startsWith(matrix.os, 'macos') }}
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -58,7 +55,7 @@ jobs:
       - if: ${{ startsWith(matrix.os, 'ubuntu') }}
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libayatana-appindicator3-dev libclang-dev librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev
+          sudo apt-get install -y libclang-dev
           dist/mkdist
       - if: ${{ startsWith(matrix.os, 'windows') }}
         run: |

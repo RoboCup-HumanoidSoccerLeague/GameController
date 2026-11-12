@@ -23,13 +23,26 @@ use game_controller_runtime::{
     shutdown_runtime, start_runtime, RuntimeState, UiState,
 };
 
-use crate::{actions::declared_actions, launcher::Launcher, main_view::MainView, style::tw};
+use crate::{
+    actions::declared_actions,
+    launcher::Launcher,
+    main_view::{self, MainView},
+    style::tw,
+};
 
-/// The minimum size of the main window.
+/// The size at which the main window opens (if the monitor is large enough).
 const MAIN_WINDOW_SIZE: Vec2 = Vec2::new(1040.0, 848.0);
 
+/// The minimum size of the main window. It is as narrow as the labels of the buttons allow, and
+/// as low as five player buttons fit without scrolling, so that it also fits on small screens.
+const MIN_MAIN_WINDOW_SIZE: Vec2 = Vec2::new(1040.0, 700.0);
+
+/// The part of the monitor that the main window covers at most when it opens, which leaves room
+/// for the decorations of the window and of the desktop (menu bar, task bar).
+const MAX_MONITOR_FRACTION: f32 = 0.85;
+
 /// The size of the launcher window.
-pub const LAUNCHER_SIZE: Vec2 = Vec2::new(640.0, 560.0);
+pub const LAUNCHER_SIZE: Vec2 = Vec2::new(700.0, 560.0);
 
 /// This function returns the real path of the executable, which is the base for finding the
 /// installed configuration (symbolic links must not confuse the search).
@@ -159,18 +172,19 @@ impl App {
         let view = MainView::new(runtime_state.params.clone(), team_names);
 
         ctx.send_viewport_cmd(ViewportCommand::Resizable(true));
-        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(MAIN_WINDOW_SIZE));
+        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(MIN_MAIN_WINDOW_SIZE));
         if settings.window.fullscreen {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(true));
         } else {
-            ctx.send_viewport_cmd(ViewportCommand::InnerSize(MAIN_WINDOW_SIZE));
+            let size = main_window_size(ctx.input(|i| i.viewport().monitor_size));
+            ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
             // The window grows around its center, so that it stays on the monitor that the
             // launcher is on (which is centered there unless the user moved it). The monitor's
             // origin is not known, so the window can't be centered on the monitor itself.
             let rects = ctx.input(|i| i.viewport().outer_rect.zip(i.viewport().inner_rect));
             if let Some((outer, inner)) = rects {
                 ctx.send_viewport_cmd(ViewportCommand::OuterPosition(
-                    main_window_rect(outer, inner).min,
+                    main_window_rect(outer, inner, size).min,
                 ));
             }
         }
@@ -189,11 +203,19 @@ impl App {
     }
 }
 
-/// This function returns the outer rectangle of the main window, given the outer and inner
-/// rectangles of the launcher window: it keeps the center and the decorations.
-fn main_window_rect(outer: Rect, inner: Rect) -> Rect {
+/// This function returns the size at which the main window opens on a monitor of a given size
+/// (if it is known).
+fn main_window_size(monitor_size: Option<Vec2>) -> Vec2 {
+    let available = monitor_size.map_or(MAIN_WINDOW_SIZE, |size| size * MAX_MONITOR_FRACTION);
+    MAIN_WINDOW_SIZE.min(available).max(MIN_MAIN_WINDOW_SIZE)
+}
+
+/// This function returns the outer rectangle of the main window with a given inner size, given
+/// the outer and inner rectangles of the launcher window: it keeps the center and the
+/// decorations.
+fn main_window_rect(outer: Rect, inner: Rect, size: Vec2) -> Rect {
     let decorations = (outer.size() - inner.size()).max(Vec2::ZERO);
-    Rect::from_center_size(outer.center(), MAIN_WINDOW_SIZE + decorations)
+    Rect::from_center_size(outer.center(), size + decorations)
 }
 
 impl eframe::App for App {
@@ -212,12 +234,16 @@ impl eframe::App for App {
                 if new_ui_state.is_some() {
                     running.ui_state = new_ui_state;
                 }
+                // The main window is zoomed with its size. The zoom factor is derived from the
+                // size in native points, which doesn't depend on the zoom factor itself.
+                let native_size = ui.max_rect().size() * ctx.zoom_factor();
+                ctx.set_zoom_factor(main_view::zoom_factor(native_size));
                 if let Some(state) = &running.ui_state {
                     for action in running.view.ui(ui, state) {
                         let _ = running.runtime_state.action_sender.send(action);
                     }
                 } else {
-                    ui.painter().rect_filled(ui.max_rect(), 0.0, tw::WHITE);
+                    egui::CentralPanel::default().show(ui, |_| {});
                 }
             }
             Screen::Error(message) => {

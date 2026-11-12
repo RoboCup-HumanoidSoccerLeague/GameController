@@ -2,16 +2,26 @@
 //! chosen before the game starts.
 
 use eframe::egui::{
-    self, Align, Align2, Id, Layout, Pos2, Rect, RichText, Stroke, Ui, UiBuilder, Vec2,
+    self, vec2, Align, Button, CentralPanel, Frame, Id, Label, Layout, Panel, Pos2, Rect, RichText,
+    Sense, Stroke, Ui, Vec2,
 };
 
 use game_controller_core::types::{Color, Side, SideMapping, TeamParams};
 use game_controller_runtime::launch::{Competition, LaunchData, LaunchSettings, Team};
 
-use crate::style::{self, font, tw, ButtonState, Weight};
+use crate::style::{self, font, panel_frame, tw, Weight};
 
 /// The number of the team that is part of every competition and is selected by default.
 const DEFAULT_TEAM_NUMBER: u8 = 0;
+
+/// The margin of the window.
+const MARGIN: i8 = 16;
+/// The space between the settings.
+const SPACING: f32 = 12.0;
+/// The settings are laid out in two columns with a narrow one in between.
+const MIDDLE_COLUMN_WIDTH: f32 = 80.0;
+/// The height of the settings of a team.
+const TEAM_HEIGHT: f32 = 230.0;
 
 /// The launcher.
 pub struct Launcher {
@@ -101,40 +111,36 @@ impl Launcher {
 
     /// This function draws the launcher and returns the settings when the user clicks Start.
     pub fn ui(&mut self, ui: &mut Ui) -> Option<LaunchSettings> {
-        let screen = ui.max_rect();
-        ui.painter().rect_filled(screen, 0.0, tw::WHITE);
-        let rem = 16.0;
-        let r = |n: f32| n * rem;
-        // The content is at most 40rem x 35rem, centered, with 1rem padding.
-        let content = Rect::from_center_size(
-            screen.center(),
-            Vec2::new(screen.width().min(r(40.0)), screen.height().min(r(35.0))),
-        )
-        .shrink(r(1.0));
-        let gap = r(0.75);
-        let field_h = r(1.25) + r(0.25) + r(1.75);
-        let start_h = r(1.25 * 1.4) + r(1.0) + 2.0;
-        let lower_h = field_h + r(0.5) + r(5.5);
+        let legal = self.settings_are_legal();
+        let start = Panel::bottom("start")
+            .frame(panel_frame(MARGIN))
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    let text = RichText::new("Start").font(font(20.0, Weight::SemiBold));
+                    let button = Button::new(text).min_size(vec2(120.0, 46.0));
+                    ui.add_enabled(legal, button).clicked()
+                })
+                .inner
+            })
+            .inner;
 
-        let competition_rect =
-            Rect::from_min_size(content.min, Vec2::new(content.width(), field_h));
-        let start_rect = Rect::from_min_max(
-            Pos2::new(content.left(), content.bottom() - start_h),
-            content.max,
-        );
-        let lower_rect = Rect::from_min_size(
-            Pos2::new(content.left(), start_rect.top() - gap - lower_h),
-            Vec2::new(content.width(), lower_h),
-        );
-        let game_rect = Rect::from_min_max(
-            Pos2::new(content.left(), competition_rect.bottom() + gap),
-            Pos2::new(content.right(), lower_rect.top() - gap),
-        );
+        CentralPanel::default()
+            .frame(panel_frame(MARGIN))
+            .show(ui, |ui| {
+                ui.spacing_mut().item_spacing = Vec2::splat(SPACING);
+                self.competition(ui);
+                self.game_settings(ui);
+                self.other_settings(ui);
+            });
 
-        // Competition
+        start.then(|| self.settings.clone())
+    }
+
+    fn competition(&mut self, ui: &mut Ui) {
         let competitions = &self.data.competitions;
         let mut competition_id = self.settings.competition.id.clone();
-        field(ui, competition_rect, "Competition", |ui, label| {
+        field(ui, "Competition", |ui, label| {
             let selected = competitions
                 .iter()
                 .find(|c| c.id == competition_id)
@@ -151,123 +157,47 @@ impl Launcher {
             });
         });
         self.set_competition(competition_id);
+    }
 
-        self.game_settings(ui, game_rect);
-
-        // Network interface / window, casting / testing.
-        let cols = three_columns(lower_rect);
-        let top = |rect: Rect| Rect::from_min_size(rect.min, Vec2::new(rect.width(), field_h));
-        let bottom = |rect: Rect| {
-            Rect::from_min_max(
-                Pos2::new(rect.left(), rect.top() + field_h + r(0.5)),
-                rect.max,
-            )
+    /// This function draws the settings of the two teams, on the sides on which they play, with
+    /// the control to swap the sides in between.
+    fn game_settings(&mut self, ui: &mut Ui) {
+        let mirrored = self.settings.game.side_mapping == SideMapping::HomeDefendsRightGoal;
+        let (left, right) = if mirrored {
+            (Side::Away, Side::Home)
+        } else {
+            (Side::Home, Side::Away)
         };
-        let interfaces = &self.data.network_interfaces;
-        let network = &mut self.settings.network;
-        field(ui, top(cols[0]), "Network Interface", |ui, label| {
-            let selected = network.interface.clone();
-            select(ui, label, "interface", selected, true, |ui| {
-                for interface in interfaces {
-                    ui.selectable_value(
-                        &mut network.interface,
-                        interface.id.clone(),
-                        &interface.id,
-                    );
-                }
+        let width = side_column_width(ui);
+        let size = vec2(ui.available_width(), TEAM_HEIGHT);
+        ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Center), |ui| {
+            column(ui, vec2(width, TEAM_HEIGHT), |ui| {
+                self.team_settings(ui, left);
+            });
+
+            let height = 24.0 + 4.0 + ui.spacing().interact_size.y;
+            let size = vec2(MIDDLE_COLUMN_WIDTH, height);
+            ui.allocate_ui_with_layout(size, Layout::top_down(Align::Center), |ui| {
+                ui.spacing_mut().item_spacing.y = 4.0;
+                let (rect, _) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::hover());
+                style::icons::arrows_right_left(ui.painter(), rect, tw::BLACK);
+                let mut mirror = mirrored;
+                ui.checkbox(&mut mirror, "Mirror")
+                    .on_hover_text("Swap the sides: the home team starts on the right");
+                self.settings.game.side_mapping = if mirror {
+                    SideMapping::HomeDefendsRightGoal
+                } else {
+                    SideMapping::HomeDefendsLeftGoal
+                };
+            });
+
+            column(ui, vec2(width, TEAM_HEIGHT), |ui| {
+                self.team_settings(ui, right);
             });
         });
-        let fullscreen = &mut self.settings.window.fullscreen;
-        field(ui, top(cols[2]), "Window", |ui, label| {
-            ui.add_space(4.0);
-            ui.checkbox(fullscreen, "Fullscreen").labelled_by(label);
-        });
-        details(ui, bottom(cols[0]), "Casting (Advanced)", |ui| {
-            ui.checkbox(&mut network.broadcast, "Broadcast");
-            ui.checkbox(&mut network.multicast, "Multicast");
-        });
-        let test = &mut self.settings.game.test;
-        details(ui, bottom(cols[2]), "Testing", |ui| {
-            ui.checkbox(&mut test.no_delay, "No Delay");
-            ui.checkbox(&mut test.penalty_shootout, "Penalty Shoot-out");
-        });
-
-        // Start
-        let legal = self.settings_are_legal();
-        let start_size = Vec2::new(r(1.25) * 2.8 + r(4.0), start_h);
-        let start_button = Rect::from_center_size(start_rect.center(), start_size);
-        let response = style::button_frame(
-            ui,
-            start_button,
-            Id::unique("start"),
-            "Start",
-            ButtonState {
-                active: false,
-                legal,
-            },
-            None,
-        );
-        style::paint_text_centered(
-            ui.painter(),
-            start_button,
-            "Start",
-            font(r(1.25), Weight::SemiBold),
-            if legal { tw::BLACK } else { tw::GRAY_500 },
-        );
-        response.clicked().then(|| self.settings.clone())
     }
 
-    fn game_settings(&mut self, ui: &mut Ui, rect: Rect) {
-        let mirrored = self.settings.game.side_mapping == SideMapping::HomeDefendsRightGoal;
-        let cols = three_columns(rect);
-        let (home_rect, away_rect) = if mirrored {
-            (cols[2], cols[0])
-        } else {
-            (cols[0], cols[2])
-        };
-        for (side, rect) in [(Side::Home, home_rect), (Side::Away, away_rect)] {
-            self.team_settings(ui, rect, side);
-        }
-
-        // The middle column holds the mirror checkbox.
-        let middle = cols[1];
-        let arrows_size = 24.0;
-        let checkbox_h = 24.0;
-        let total = arrows_size + 4.0 + checkbox_h;
-        let top = middle.center().y - total / 2.0;
-        style::icons::arrows_right_left(
-            ui.painter(),
-            Rect::from_center_size(
-                Pos2::new(middle.center().x, top + arrows_size / 2.0),
-                Vec2::splat(arrows_size),
-            ),
-            tw::BLACK,
-        );
-        let mut mirror = mirrored;
-        let checkbox_rect = Rect::from_center_size(
-            Pos2::new(middle.center().x, top + total - checkbox_h / 2.0),
-            Vec2::new(middle.width() + 16.0, checkbox_h),
-        );
-        let mut child = ui.new_child(
-            UiBuilder::new()
-                .max_rect(checkbox_rect)
-                .layout(Layout::left_to_right(Align::Center).with_main_justify(false)),
-        );
-        child.vertical_centered(|ui| {
-            ui.checkbox(&mut mirror, "Mirror")
-                .on_hover_text("Swap the sides: the home team starts on the right");
-        });
-        if mirror != mirrored {
-            self.settings.game.side_mapping = if mirror {
-                SideMapping::HomeDefendsRightGoal
-            } else {
-                SideMapping::HomeDefendsLeftGoal
-            };
-        }
-    }
-
-    fn team_settings(&mut self, ui: &mut Ui, rect: Rect, side: Side) {
-        let rem = 16.0;
+    fn team_settings(&mut self, ui: &mut Ui, side: Side) {
         let game = &self.settings.game;
         let other = -side;
         let team_legal = game.teams[Side::Home].number != game.teams[Side::Away].number;
@@ -278,139 +208,137 @@ impl Launcher {
         let goalkeeper_color_legal =
             game.teams[side].goalkeeper_color != game.teams[other].field_player_color;
 
-        // The section frame.
-        ui.painter().rect_stroke(
-            rect,
-            style::RADIUS,
-            Stroke::new(1.0, tw::GRAY_600),
-            egui::StrokeKind::Inside,
-        );
-        let inner = rect.shrink(rem * 0.75);
-        let title_h = rem * 1.75;
-        let title_rect = Rect::from_min_size(inner.min, Vec2::new(inner.width(), title_h));
-        style::paint_galley(
-            ui.painter(),
-            ui.painter().layout_no_wrap(
-                match side {
-                    Side::Home => "Home",
-                    Side::Away => "Away",
+        Frame::group(ui.style())
+            .inner_margin(SPACING)
+            .show(ui, |ui| {
+                ui.set_min_size(ui.available_size());
+
+                ui.horizontal(|ui| {
+                    ui.heading(match side {
+                        Side::Home => "Home",
+                        Side::Away => "Away",
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.radio_value(&mut self.settings.game.kick_off_side, side, "Kick-off");
+                    });
+                });
+                ui.add_space(SPACING);
+
+                let team_number = self.settings.game.teams[side].number;
+                let mut number = team_number;
+                let teams = &self.competition_teams;
+                field(ui, "Team", |ui, label| {
+                    let selected = teams
+                        .iter()
+                        .find(|t| t.number == number)
+                        .map(|t| format!("{} ({})", t.name, t.number))
+                        .unwrap_or_default();
+                    select(ui, label, ("team", side), selected, team_legal, |ui| {
+                        for team in teams {
+                            ui.selectable_value(
+                                &mut number,
+                                team.number,
+                                format!("{} ({})", team.name, team.number),
+                            );
+                        }
+                    });
+                });
+                let team = find_team(&self.data.teams, number);
+                let params = &mut self.settings.game.teams[side];
+                if number != team_number {
+                    *params = TeamParams {
+                        number,
+                        field_player_color: team.field_player_colors[0],
+                        goalkeeper_color: team.goalkeeper_colors[0],
+                    };
                 }
-                .into(),
-                font(rem * 1.25, Weight::SemiBold),
-                tw::BLACK,
-            ),
-            Align2::LEFT_CENTER,
-            title_rect.left_center(),
-        );
-        let mut kick_off = self.settings.game.kick_off_side == side;
-        let mut child = ui.new_child(
-            UiBuilder::new()
-                .max_rect(title_rect)
-                .layout(Layout::right_to_left(Align::Center)),
-        );
-        child.push_id(("kick-off", side), |ui| {
-            if ui.radio(kick_off, "Kick-off").clicked() {
-                kick_off = true;
-            }
-        });
-        if kick_off {
-            self.settings.game.kick_off_side = side;
-        }
+                ui.add_space(SPACING);
 
-        // The team and its jersey colors, evenly distributed in the remaining space.
-        let field_h = rem * (1.25 + 0.25 + 1.75);
-        let body = Rect::from_min_max(
-            Pos2::new(inner.left(), title_rect.bottom() + rem * 0.5),
-            inner.max,
-        );
-        let spare = (body.height() - 2.0 * field_h).max(0.0) / 3.0;
-        let team_rect = Rect::from_min_size(
-            Pos2::new(body.left(), body.top() + spare),
-            Vec2::new(body.width(), field_h),
-        );
-        let colors_rect = team_rect.translate(Vec2::new(0.0, field_h + spare));
-        let half = (colors_rect.width() - rem * 0.5) / 2.0;
-        let fp_rect = Rect::from_min_size(colors_rect.min, Vec2::new(half, field_h));
-        let gk_rect = fp_rect.translate(Vec2::new(half + rem * 0.5, 0.0));
-
-        let team_number = self.settings.game.teams[side].number;
-        let mut number = team_number;
-        let teams = &self.competition_teams;
-        field(ui, team_rect, "Team", |ui, label| {
-            let selected = teams
-                .iter()
-                .find(|t| t.number == number)
-                .map(|t| format!("{} ({})", t.name, t.number))
-                .unwrap_or_default();
-            select(ui, label, ("team", side), selected, team_legal, |ui| {
-                for team in teams {
-                    ui.selectable_value(
-                        &mut number,
-                        team.number,
-                        format!("{} ({})", team.name, team.number),
+                ui.columns(2, |columns| {
+                    color_field(
+                        &mut columns[0],
+                        "Field Player Color",
+                        ("fp", side),
+                        &team.field_player_colors,
+                        &mut params.field_player_color,
+                        field_player_color_legal,
                     );
-                }
+                    color_field(
+                        &mut columns[1],
+                        "Goalkeeper Color",
+                        ("gk", side),
+                        &team.goalkeeper_colors,
+                        &mut params.goalkeeper_color,
+                        goalkeeper_color_legal,
+                    );
+                });
+            });
+    }
+
+    /// This function draws the settings that are not about the game: network and window on the
+    /// sides, each with a group of less common settings below.
+    fn other_settings(&mut self, ui: &mut Ui) {
+        let interfaces = &self.data.network_interfaces;
+        let network = &mut self.settings.network;
+        let fullscreen = &mut self.settings.window.fullscreen;
+        let test = &mut self.settings.game.test;
+        let width = side_column_width(ui);
+        ui.horizontal_top(|ui| {
+            column(ui, vec2(width, 0.0), |ui| {
+                field(ui, "Network Interface", |ui, label| {
+                    let selected = network.interface.clone();
+                    select(ui, label, "interface", selected, true, |ui| {
+                        for interface in interfaces {
+                            ui.selectable_value(
+                                &mut network.interface,
+                                interface.id.clone(),
+                                &interface.id,
+                            );
+                        }
+                    });
+                });
+                details(ui, "Casting (Advanced)", |ui| {
+                    ui.checkbox(&mut network.broadcast, "Broadcast");
+                    ui.checkbox(&mut network.multicast, "Multicast");
+                });
+            });
+            // The middle column is empty.
+            ui.add_space(MIDDLE_COLUMN_WIDTH + SPACING);
+            column(ui, vec2(width, 0.0), |ui| {
+                field(ui, "Window", |ui, label| {
+                    ui.checkbox(fullscreen, "Fullscreen").labelled_by(label);
+                });
+                details(ui, "Testing", |ui| {
+                    ui.checkbox(&mut test.no_delay, "No Delay");
+                    ui.checkbox(&mut test.penalty_shootout, "Penalty Shoot-out");
+                });
             });
         });
-        if number != team_number {
-            let team = self.team(number);
-            self.settings.game.teams[side] = TeamParams {
-                number,
-                field_player_color: team.field_player_colors[0],
-                goalkeeper_color: team.goalkeeper_colors[0],
-            };
-        }
-
-        let params = &mut self.settings.game.teams[side];
-        let team = find_team(&self.data.teams, params.number);
-        color_field(
-            ui,
-            fp_rect,
-            "Field Player Color",
-            ("fp", side),
-            &team.field_player_colors,
-            &mut params.field_player_color,
-            field_player_color_legal,
-        );
-        color_field(
-            ui,
-            gk_rect,
-            "Goalkeeper Color",
-            ("gk", side),
-            &team.goalkeeper_colors,
-            &mut params.goalkeeper_color,
-            goalkeeper_color_legal,
-        );
     }
 }
 
-/// This function splits a rectangle into the columns `1fr 5rem 1fr` with 0.75rem gaps.
-fn three_columns(rect: Rect) -> [Rect; 3] {
-    let gap = 12.0;
-    let middle = 80.0;
-    let side = (rect.width() - middle - 2.0 * gap) / 2.0;
-    let col =
-        |x: f32, w: f32| Rect::from_min_size(Pos2::new(x, rect.top()), Vec2::new(w, rect.height()));
-    [
-        col(rect.left(), side),
-        col(rect.left() + side + gap, middle),
-        col(rect.right() - side, side),
-    ]
+/// This function returns the width of the side columns of a row that has a narrow column in the
+/// middle.
+fn side_column_width(ui: &Ui) -> f32 {
+    (ui.available_width() - MIDDLE_COLUMN_WIDTH - 2.0 * SPACING) / 2.0
+}
+
+/// This function adds a column of a given size (which grows with its contents) to a row.
+fn column(ui: &mut Ui, size: Vec2, add_contents: impl FnOnce(&mut Ui)) {
+    ui.allocate_ui_with_layout(size, Layout::top_down(Align::Min), |ui| {
+        ui.set_min_size(size);
+        ui.set_max_width(size.x);
+        add_contents(ui);
+    });
 }
 
 /// This function draws a labeled form field (a small gray label above a control).
-fn field(ui: &mut Ui, rect: Rect, label: &str, add_contents: impl FnOnce(&mut Ui, Id)) {
-    let mut child = ui.new_child(
-        UiBuilder::new()
-            .max_rect(rect)
-            .layout(Layout::top_down(Align::Min)),
-    );
-    child.spacing_mut().item_spacing.y = 4.0;
-    let label = child.add(
-        egui::Label::new(RichText::new(label).size(14.0).color(tw::GRAY_600))
-            .wrap_mode(egui::TextWrapMode::Extend),
-    );
-    add_contents(&mut child, label.id);
+fn field(ui: &mut Ui, label: &str, add_contents: impl FnOnce(&mut Ui, Id)) {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 4.0;
+        let label = ui.add(Label::new(RichText::new(label).small().color(tw::GRAY_600)).truncate());
+        add_contents(ui, label.id);
+    });
 }
 
 /// This function draws a dropdown that fills the available width, with a red border if its value
@@ -478,14 +406,13 @@ fn chevrons_up_down(ui: &Ui, rect: Rect, visuals: &egui::style::WidgetVisuals, _
 
 fn color_field(
     ui: &mut Ui,
-    rect: Rect,
     label: &str,
     id: impl std::hash::Hash + std::fmt::Debug,
     colors: &[Color],
     color: &mut Color,
     legal: bool,
 ) {
-    field(ui, rect, label, |ui, label| {
+    field(ui, label, |ui, label| {
         select(ui, label, id, color_label(*color), legal, |ui| {
             for c in colors {
                 ui.selectable_value(color, *c, color_label(*c));
@@ -500,15 +427,10 @@ fn color_label(color: Color) -> String {
 }
 
 /// This function draws a collapsible group of settings (like HTML's details element).
-fn details(ui: &mut Ui, rect: Rect, summary: &str, add_contents: impl FnOnce(&mut Ui)) {
-    let mut child = ui.new_child(
-        UiBuilder::new()
-            .max_rect(rect)
-            .layout(Layout::top_down(Align::Min)),
-    );
-    egui::CollapsingHeader::new(RichText::new(summary).size(14.0).color(tw::GRAY_600))
+fn details(ui: &mut Ui, summary: &str, add_contents: impl FnOnce(&mut Ui)) {
+    egui::CollapsingHeader::new(RichText::new(summary).small().color(tw::GRAY_600))
         .id_salt(summary)
-        .show(&mut child, |ui| {
+        .show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 8.0;
             add_contents(ui);
         });

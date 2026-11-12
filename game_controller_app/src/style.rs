@@ -1,13 +1,13 @@
-//! This module defines the look of the application: colors, fonts, and the painting of the custom
-//! widgets (buttons, text) that the main window is built from.
+//! This module defines the look of the application: the color palette, the fonts, the egui style
+//! that the widgets are drawn with, and the icons.
 
 use std::sync::Arc;
 
 use eframe::egui::{
     self,
     text::{LayoutJob, TextFormat},
-    Align, Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Galley,
-    Painter, Pos2, Rect, Response, Sense, Stroke, StrokeKind, Ui, Vec2, WidgetInfo,
+    Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Frame, RichText, Stroke,
+    Ui, Vec2,
 };
 
 use game_controller_core::types::Color;
@@ -179,6 +179,7 @@ pub fn setup(ctx: &egui::Context) {
         visuals.widgets.noninteractive.corner_radius = CornerRadius::same(6);
         visuals.menu_corner_radius = CornerRadius::same(6);
         visuals.window_stroke = Stroke::new(1.0, tw::GRAY_600);
+        visuals.interact_cursor = Some(egui::CursorIcon::PointingHand);
         style.spacing.interact_size.y = 28.0;
         style.spacing.button_padding = Vec2::new(8.0, 4.0);
         style.spacing.icon_width = 16.0;
@@ -200,236 +201,67 @@ pub fn setup(ctx: &egui::Context) {
     });
 }
 
-/// The corner radius of buttons (rounded-md).
-pub const RADIUS: f32 = 6.0;
-
-/// This function lays out text, optionally wrapped and centered.
-pub fn galley(
-    painter: &Painter,
-    text: &str,
-    font: FontId,
-    color: Color32,
-    wrap_width: f32,
-    halign: Align,
-) -> Arc<Galley> {
-    // Lines are 1.5 times as high as the font size.
-    let line_height = Some(font.size * 1.5);
-    let mut job = LayoutJob::single_section(
-        text.to_owned(),
-        TextFormat {
-            font_id: font,
-            color,
-            line_height,
-            ..Default::default()
-        },
-    );
-    job.wrap.max_width = wrap_width;
-    job.halign = halign;
-    painter.layout_job(job)
+/// This function returns the frame of a panel: the background with a margin, without a border.
+pub fn panel_frame(margin: i8) -> Frame {
+    Frame::new().fill(tw::WHITE).inner_margin(margin)
 }
 
-/// This function paints a galley so that its bounding box is anchored at a point.
-pub fn paint_galley(painter: &Painter, galley: Arc<Galley>, anchor: Align2, pos: Pos2) {
-    let rect = anchor.anchor_size(pos, galley.size());
-    let offset = rect.min - galley.rect.min;
-    painter.galley(offset.to_pos2(), galley, tw::BLACK);
+/// This function returns text with a given line height. egui's default line height depends on the
+/// font, but lines of body text must be as high as the cells that the layout is made of.
+pub fn line(text: impl Into<String>, line_height: f32) -> RichText {
+    RichText::new(text).line_height(Some(line_height))
 }
 
-/// This function paints text centered in a rectangle (wrapping it if necessary). If a single word
-/// is wider than the rectangle, the font is made smaller so that words are not broken.
-pub fn paint_text_centered(
-    painter: &Painter,
-    rect: Rect,
-    text: &str,
-    mut font: FontId,
-    color: Color32,
-) {
-    let widest_word = text
-        .split_whitespace()
-        .map(|word| {
-            painter
-                .layout_no_wrap(word.to_owned(), font.clone(), color)
-                .size()
-                .x
-        })
-        .fold(0.0, f32::max);
-    if widest_word > rect.width() && widest_word > 0.0 {
-        // A small margin keeps the space after the word from being wrapped onto its own line.
-        font.size *= (0.97 * rect.width() / widest_word).max(0.6);
-    }
-    let galley = galley(painter, text, font, color, rect.width(), Align::Center);
-    paint_galley(painter, galley, Align2::CENTER_CENTER, rect.center());
-}
-
-/// This function paints text with tabular (fixed-width) digits, which keeps timers from jittering
-/// when their digits change. Inter's digits are proportional and egui can't select the `tnum`
-/// feature, so the characters are placed one by one.
-pub fn paint_tabular(
-    painter: &Painter,
-    text: &str,
-    font: FontId,
-    color: Color32,
-    anchor: Align2,
-    pos: Pos2,
-) -> Rect {
-    let digit_width = painter
-        .layout_no_wrap("0".into(), font.clone(), color)
-        .size()
-        .x;
-    let glyphs: Vec<_> = text
-        .chars()
-        .map(|c| painter.layout_no_wrap(c.to_string(), font.clone(), color))
-        .collect();
-    let advances: Vec<f32> = text
-        .chars()
-        .zip(&glyphs)
-        .map(|(c, g)| {
-            if c.is_ascii_digit() {
-                digit_width
-            } else {
-                g.size().x
-            }
-        })
-        .collect();
-    let height = glyphs.iter().map(|g| g.size().y).fold(0.0, f32::max);
-    let rect = anchor.anchor_size(pos, Vec2::new(advances.iter().sum(), height));
-    let mut x = rect.left();
-    for (glyph, advance) in glyphs.into_iter().zip(advances) {
-        let glyph_x = x + (advance - glyph.size().x) / 2.0;
-        painter.galley(Pos2::new(glyph_x, rect.top()), glyph, color);
-        x += advance;
-    }
-    rect
-}
-
-/// This function exposes painted text to accessibility tools (screen readers, UI automation), which
-/// otherwise only see widgets. `name` is the accessible name and `value` the displayed text; for
-/// [egui::Role::Label], egui uses the name as the text, so `value` should be empty.
-pub fn accessible_text(
+/// This function appends text with tabular (fixed-width) digits to a layout job, which keeps
+/// timers from jittering when their digits change. Inter's digits are proportional and egui can't
+/// select the `tnum` feature, so each digit is padded to the width of the widest one. The text
+/// starts after `leading_space`.
+pub fn append_tabular(
     ui: &Ui,
-    rect: Rect,
-    id: egui::Id,
-    role: egui::Role,
-    name: &str,
-    value: &str,
+    job: &mut LayoutJob,
+    text: &str,
+    format: &TextFormat,
+    leading_space: f32,
 ) {
-    let response = ui.interact(rect, id, Sense::hover());
-    let (name, value) = (name.to_owned(), value.to_owned());
-    response.widget_info(|| {
-        let mut info = WidgetInfo::labeled(role, true, &name);
-        if !value.is_empty() {
-            info.current_text_value = Some(value.clone());
-        }
-        info
+    let font = &format.font_id;
+    let (digit_width, widths): (f32, Vec<f32>) = ui.fonts_mut(|fonts| {
+        (
+            ('0'..='9')
+                .map(|digit| fonts.glyph_width(font, digit))
+                .fold(0.0, f32::max),
+            text.chars().map(|c| fonts.glyph_width(font, c)).collect(),
+        )
     });
-    hide_if_clipped(ui, &response, rect);
-}
-
-/// This function marks a widget as hidden for accessibility tools if it lies completely outside
-/// the visible area (e.g. a player button scrolled out of view). egui doesn't do this itself.
-fn hide_if_clipped(ui: &Ui, response: &Response, rect: Rect) {
-    if !ui.is_rect_visible(rect) {
-        ui.ctx()
-            .accesskit_node_builder(response.id, |node| node.set_hidden());
-    }
-}
-
-/// The visual state of a button.
-#[derive(Clone, Copy, Default)]
-pub struct ButtonState {
-    /// The button is highlighted (e.g. a selected toggle).
-    pub active: bool,
-    /// The button can be clicked.
-    pub legal: bool,
-}
-
-/// This function allocates an interactive button at a fixed rectangle and paints its frame. The
-/// content must be painted by the caller. Illegal buttons are not clickable.
-pub fn button_frame(
-    ui: &mut Ui,
-    rect: Rect,
-    id: egui::Id,
-    label: &str,
-    state: ButtonState,
-    fill: Option<Color32>,
-) -> Response {
-    let sense = if state.legal {
-        Sense::click()
-    } else {
-        Sense::hover()
-    };
-    let response = ui.interact(rect, id, sense);
-    let label = label.to_owned();
-    let legal = state.legal;
-    let selected = state.active;
-    response.widget_info(|| {
-        let mut info = WidgetInfo::labeled(egui::Role::Button, legal, &label);
-        info.selected = Some(selected);
-        info
-    });
-    hide_if_clipped(ui, &response, rect);
-    if ui.is_rect_visible(rect) {
-        let fill = fill.unwrap_or(if state.active {
-            tw::GRAY_300
-        } else if state.legal {
-            tw::WHITE
+    let mut buffer = [0; 4];
+    let mut leading_space = leading_space;
+    for (c, width) in text.chars().zip(widths) {
+        let padding = if c.is_ascii_digit() {
+            (digit_width - width) / 2.0
         } else {
-            tw::GRAY_100
-        });
-        let fill = if state.legal && response.is_pointer_button_down_on() {
-            darken(fill, 0.1)
-        } else if state.legal && response.hovered() {
-            darken(fill, 0.04)
-        } else {
-            fill
+            0.0
         };
-        ui.painter().rect(
-            rect,
-            RADIUS,
-            fill,
-            Stroke::new(1.0, tw::GRAY_600),
-            StrokeKind::Inside,
+        job.append(
+            c.encode_utf8(&mut buffer),
+            std::mem::take(&mut leading_space) + padding,
+            TextFormat {
+                extra_letter_spacing: format.extra_letter_spacing + padding,
+                ..format.clone()
+            },
         );
-        if state.legal && response.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
     }
-    response
 }
 
-/// This function draws a standard text button and returns whether it was clicked.
-pub fn text_button(
-    ui: &mut Ui,
-    rect: Rect,
-    id: egui::Id,
-    label: &str,
-    state: ButtonState,
-    font_size: f32,
-) -> bool {
-    let response = button_frame(ui, rect, id, label, state, None);
-    let color = if state.legal || state.active {
-        tw::BLACK
-    } else {
-        tw::GRAY_500
-    };
-    let inner = rect.shrink2(Vec2::new(font_size * 0.5, font_size * 0.25));
-    paint_text_centered(
-        ui.painter(),
-        inner,
-        label,
-        font(font_size, Weight::Regular),
+/// This function lays out text with tabular digits (see [append_tabular]).
+pub fn tabular(ui: &Ui, text: &str, font: FontId, color: Color32, line_height: f32) -> LayoutJob {
+    let mut job = LayoutJob::default();
+    let format = TextFormat {
+        font_id: font,
         color,
-    );
-    response.clicked()
-}
-
-fn darken(color: Color32, amount: f32) -> Color32 {
-    let f = 1.0 - amount;
-    Color32::from_rgb(
-        (color.r() as f32 * f) as u8,
-        (color.g() as f32 * f) as u8,
-        (color.b() as f32 * f) as u8,
-    )
+        line_height: Some(line_height),
+        ..Default::default()
+    };
+    append_tabular(ui, &mut job, text, &format, 0.0);
+    job
 }
 
 /// The connection status icons (after Heroicons, outline style).

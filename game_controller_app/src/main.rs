@@ -5,7 +5,14 @@
     windows_subsystem = "windows"
 )]
 
-use std::{path::Path, process::exit};
+use std::{
+    path::Path,
+    process::exit,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use anyhow::Context;
 use eframe::egui;
@@ -103,16 +110,22 @@ fn main() {
         centered: true,
         ..Default::default()
     };
+    let failed = Arc::new(AtomicBool::new(false));
+    let app_failed = failed.clone();
     let result = eframe::run_native(
         "GameController",
         options,
         Box::new(move |cc| {
             style::setup(&cc.egui_ctx);
-            Ok(Box::new(App::new(args, runtime)))
+            Ok(Box::new(App::new(args, runtime, app_failed)))
         }),
     );
     if let Err(error) = result {
         eprintln!("{error}");
+        exit(1);
+    }
+    // A fatal error (shown in the window and on stderr) is a failure of the program.
+    if failed.load(Ordering::Relaxed) {
         exit(1);
     }
 }

@@ -17,7 +17,10 @@ use game_controller_core::{
         Game, Params, Penalty, PenaltyCall, Phase, PlayerNumber, SetPlay, Side, SideMapping, State,
     },
 };
-use game_controller_runtime::{connection_status::ConnectionStatus, UiState};
+use game_controller_runtime::{
+    connection_status::{ConnectionStatus, ConnectionStatusMap},
+    UiState,
+};
 
 use crate::{
     actions::{GameAction, Legal, TeamAction, NUM_OF_UNDO_ACTIONS, PENALTIES},
@@ -78,26 +81,32 @@ const TEAM_HEADER_H: f32 = CLOCK_H + GAP - 2.0 * ROW_H - 3.0 * GAP;
 const TEAM_BASIS: f32 = 18.125;
 const TEAM_MAX: f32 = 24.0;
 
-/// This function splits a rectangle into `n` equal cells along the x axis with gaps.
-fn columns(rect: Rect, n: usize, gap: f32) -> Vec<Rect> {
+/// This function returns cell `i` of a rectangle that is split into `n` equal cells along the x
+/// axis with gaps.
+fn nth_column(rect: Rect, n: usize, gap: f32, i: usize) -> Rect {
     let w = (rect.width() - gap * (n as f32 - 1.0)) / n as f32;
-    (0..n)
-        .map(|i| {
-            let x = rect.left() + i as f32 * (w + gap);
-            Rect::from_min_size(Pos2::new(x, rect.top()), Vec2::new(w, rect.height()))
-        })
-        .collect()
+    let x = rect.left() + i as f32 * (w + gap);
+    Rect::from_min_size(Pos2::new(x, rect.top()), Vec2::new(w, rect.height()))
 }
 
-/// This function splits a rectangle into `n` equal cells along the y axis with gaps.
-fn rows(rect: Rect, n: usize, gap: f32) -> Vec<Rect> {
+/// This function returns cell `i` of a rectangle that is split into `n` equal cells along the y
+/// axis with gaps.
+fn nth_row(rect: Rect, n: usize, gap: f32, i: usize) -> Rect {
     let h = (rect.height() - gap * (n as f32 - 1.0)) / n as f32;
-    (0..n)
-        .map(|i| {
-            let y = rect.top() + i as f32 * (h + gap);
-            Rect::from_min_size(Pos2::new(rect.left(), y), Vec2::new(rect.width(), h))
-        })
-        .collect()
+    let y = rect.top() + i as f32 * (h + gap);
+    Rect::from_min_size(Pos2::new(rect.left(), y), Vec2::new(rect.width(), h))
+}
+
+/// This function returns whether a key was pressed in this frame and removes its presses from the
+/// input, so that widgets that are created afterwards don't react to them.
+fn consume_key_presses(ui: &Ui, key: egui::Key) -> bool {
+    ui.input_mut(|i| {
+        let before = i.events.len();
+        i.events.retain(
+            |event| !matches!(event, egui::Event::Key { key: k, pressed: true, .. } if *k == key),
+        );
+        i.events.len() != before
+    })
 }
 
 /// This function returns the union of two cells.
@@ -234,7 +243,7 @@ fn action_name(action: &VAction) -> String {
 struct Ctx<'a> {
     game: &'a Game,
     legal: Legal<'a>,
-    connection_status: &'a EnumMap<Side, [ConnectionStatus; 20]>,
+    connection_status: &'a ConnectionStatusMap,
     rem: Rem,
     /// Whether flashing elements currently show their flash color.
     flash_on: bool,
@@ -288,8 +297,10 @@ impl MainView {
             flashing: false,
         };
 
-        // The space bar stops play (an emergency stop that doesn't need the mouse).
-        if ui.input(|i| i.key_pressed(egui::Key::Space)) {
+        // The space bar stops play (an emergency stop that doesn't need the mouse). The key is
+        // consumed before the buttons are created, because it would otherwise also click the
+        // button that has the keyboard focus.
+        if consume_key_presses(ui, egui::Key::Space) {
             cx.actions.push(GameAction::StopPlay.action());
         }
 
@@ -492,10 +503,13 @@ impl MainView {
             col += item.0;
         }
         let r = cx.rem;
-        let row_rects = rows(rect, row + 1, r.of(GAP));
-        for (row, col, (span_n, label, action, active)) in placed {
-            let cells = columns(row_rects[row], 5, r.of(GAP));
-            let cell = span(cells[col], cells[col + span_n - 1]);
+        let num_rows = row + 1;
+        for (row_index, col, (span_n, label, action, active)) in placed {
+            let cells = nth_row(rect, num_rows, r.of(GAP), row_index);
+            let cell = span(
+                nth_column(cells, 5, r.of(GAP), col),
+                nth_column(cells, 5, r.of(GAP), col + span_n - 1),
+            );
             if text_button(
                 ui,
                 cell,
@@ -514,9 +528,10 @@ impl MainView {
 
     fn penalty_panel(&mut self, ui: &mut Ui, cx: &mut Ctx, rect: Rect) {
         let r = cx.rem;
-        let row_rects = rows(rect, PENALTIES.len().div_ceil(2), r.of(GAP));
+        let num_rows = PENALTIES.len().div_ceil(2);
         for (index, (label, _)) in PENALTIES.iter().enumerate() {
-            let cell = columns(row_rects[index / 2], 2, r.of(GAP))[index % 2];
+            let cells = nth_row(rect, num_rows, r.of(GAP), index / 2);
+            let cell = nth_column(cells, 2, r.of(GAP), index % 2);
             let selected = self.selected_penalty_call == Some(index);
             if text_button(
                 ui,
@@ -592,8 +607,9 @@ impl MainView {
             Pos2::new(rect.left(), header.bottom() + r.of(GAP)),
             Vec2::new(rect.width(), 4.0 * r.of(ROW_H) + 3.0 * r.of(GAP)),
         );
-        let cols = columns(grid, 3, r.of(GAP));
-        let cell = |col: usize, row: usize| rows(cols[col], 4, r.of(GAP))[row];
+        let cell = |col: usize, row_index: usize| {
+            nth_row(nth_column(grid, 3, r.of(GAP), col), 4, r.of(GAP), row_index)
+        };
         let (outer, inner) = if sign > 0.0 { (0, 2) } else { (2, 0) };
 
         let select_state = self.select_state[side];
@@ -1138,7 +1154,7 @@ fn paint_player_content(
     let text_font = font(r.of(1.0), Weight::Regular);
 
     // The icon and the number are at the outer edge, the text column takes the rest.
-    let (_number_w, text_rect) = if let Some((_, number, status)) = player {
+    let text_rect = if let Some((_, number, status)) = player {
         let number_galley =
             painter.layout_no_wrap(number.to_string(), number_font.clone(), text_color);
         let number_w = number_galley.size().x;
@@ -1183,9 +1199,9 @@ fn paint_player_content(
             }
             ConnectionStatus::Offline => icons::x_mark(&painter, icon_rect, tw::RED_600),
         }
-        (number_w, text_rect)
+        text_rect
     } else {
-        (0.0, inner)
+        inner
     };
 
     // The text column: jersey color and penalty (timer or description).
@@ -1228,10 +1244,14 @@ fn paint_player_content(
 
 fn undo_panel(ui: &mut Ui, cx: &mut Ctx, rect: Rect, undo_actions: &[VAction]) {
     let r = cx.rem;
-    let cells = columns(rect, NUM_OF_UNDO_ACTIONS, r.of(GAP));
     for index in 0..NUM_OF_UNDO_ACTIONS {
         // The buttons are ordered from right to left (the rightmost undoes the last action).
-        let cell = cells[NUM_OF_UNDO_ACTIONS - 1 - index];
+        let cell = nth_column(
+            rect,
+            NUM_OF_UNDO_ACTIONS,
+            r.of(GAP),
+            NUM_OF_UNDO_ACTIONS - 1 - index,
+        );
         let label = undo_actions
             .get(index)
             .map_or_else(|| "Undo".to_owned(), action_name);

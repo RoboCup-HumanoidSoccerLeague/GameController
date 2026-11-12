@@ -5,11 +5,11 @@
 //! ([zoom_factor]), so all lengths are constants. The team panels and the center panel are made
 //! of rows of the same heights, so that they line up.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use eframe::egui::{
     self, text::LayoutJob, vec2, Align, Atom, AtomExt, Atoms, Button, CentralPanel, Label, Layout,
-    Panel, Rect, Response, ScrollArea, TextFormat, Ui, Vec2, WidgetInfo,
+    Panel, Rect, Response, ScrollArea, TextFormat, TextStyle, Ui, Vec2, WidgetInfo, WidgetText,
 };
 use enum_map::EnumMap;
 
@@ -31,7 +31,7 @@ use crate::{
     actions::{GameAction, Legal, TeamAction, NUM_OF_UNDO_ACTIONS, PENALTIES},
     style::{
         append_tabular, color_name, font, icons, jersey_background, jersey_text, line, panel_frame,
-        tabular, tw, Weight, FLASH,
+        set_disabled, tabular, tw, Weight, FLASH,
     },
 };
 
@@ -248,9 +248,35 @@ fn action_button(
     legal: bool,
     selected: bool,
 ) -> Response {
+    let size = size.into();
     ui.add_sized(size, |ui: &mut Ui| {
-        ui.add_enabled(legal, Button::new(label).selected(selected).wrap())
+        if !legal {
+            set_disabled(ui);
+        }
+        let text = centered_text(ui, label, size.x - 2.0 * ui.spacing().button_padding.x);
+        ui.add_enabled(legal, Button::new(text).selected(selected))
     })
+}
+
+/// This function lays out the text of a button with centered lines that wrap at a given width.
+/// The layout of a button places a text at its left edge, whatever its alignment is, so the rows
+/// of the centered text are moved to start there.
+fn centered_text(ui: &Ui, text: &str, wrap_width: f32) -> WidgetText {
+    let mut job = Arc::unwrap_or_clone(WidgetText::from(text).into_layout_job(
+        ui.style(),
+        TextStyle::Button.into(),
+        ui.text_valign(),
+    ));
+    job.halign = Align::Center;
+    job.wrap.max_width = wrap_width;
+    let mut galley = Arc::unwrap_or_clone(ui.fonts_mut(|fonts| fonts.layout_job(job)));
+    let offset = vec2(-galley.rect.left(), 0.0);
+    for row in &mut galley.rows {
+        row.pos += offset;
+    }
+    galley.rect = galley.rect.translate(offset);
+    galley.mesh_bounds = galley.mesh_bounds.translate(offset);
+    Arc::new(galley).into()
 }
 
 /// Everything that is needed to draw one frame.
@@ -708,7 +734,8 @@ impl MainView {
                         ) && below_ten_seconds(&player.penalty_timer)
                     });
                     cx.flashing |= flash;
-                    let button = player_button(ui, color, player, flash && cx.flash_on, left);
+                    let button =
+                        player_button(ui, color, player, legal, flash && cx.flash_on, left);
                     let response = ui.add_sized(size, |ui: &mut Ui| ui.add_enabled(legal, button));
                     // The button is named the same on both sides (its parts are mirrored).
                     response.widget_info(|| {
@@ -879,12 +906,15 @@ fn player_button<'a>(
     ui: &Ui,
     jersey: Color,
     player: Option<(u8, &Player, ConnectionStatus)>,
+    legal: bool,
     flash: bool,
     left: bool,
 ) -> Button<'a> {
+    // A button that can't be clicked keeps its jersey color, but its text is gray.
+    let color = if legal { tw::BLACK } else { tw::GRAY_500 };
     let format = TextFormat {
         font_id: font(REM, Weight::Regular),
-        color: tw::BLACK,
+        color,
         line_height: Some(LINE_HEIGHT),
         ..Default::default()
     };
@@ -924,6 +954,9 @@ fn player_button<'a>(
         } else {
             text.append(&penalty, (-indent).max(0.0), format);
         }
+    } else if player.is_some() {
+        // The line of the penalty is kept, so that the jersey color doesn't move.
+        text.append("\n", 0.0, format);
     }
     let mut atoms = Atoms::new(Atom::from(text).atom_grow(true));
     if let Some((number, _, status)) = player {
@@ -941,7 +974,7 @@ fn player_button<'a>(
             ui,
             &number.to_string(),
             font(2.0 * REM, Weight::Regular),
-            tw::BLACK,
+            color,
             2.0 * REM,
         );
         if left {
@@ -1010,7 +1043,12 @@ fn clock_panel(ui: &mut Ui, cx: &mut Ctx) {
         let legal = cx.legal.game(GameAction::AddAdditionalTime);
         let button = Button::new("+");
         if ui
-            .place(rect, |ui: &mut Ui| ui.add_enabled(legal, button))
+            .place(rect, |ui: &mut Ui| {
+                if !legal {
+                    set_disabled(ui);
+                }
+                ui.add_enabled(legal, button)
+            })
             .on_hover_text("Add additional time")
             .clicked()
         {

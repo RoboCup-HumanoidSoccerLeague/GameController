@@ -9,7 +9,7 @@ use tokio::time::Instant;
 use game_controller_core::types::{PlayerNumber, Side};
 
 /// This enumerates the possible values of a player's connection status.
-#[derive(Clone, Copy, Serialize_repr)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize_repr)]
 #[repr(u8)]
 pub enum ConnectionStatus {
     /// The player hasn't sent a status message for a long time and is probably not running.

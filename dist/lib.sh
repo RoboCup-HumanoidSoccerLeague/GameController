@@ -55,14 +55,6 @@ build_packages() {
   popd >/dev/null
 }
 
-# Builds the frontend, which is embedded in the app.
-build_frontend() {
-  pushd "${basedir}/frontend" >/dev/null
-  npm ci
-  npm run build
-  popd >/dev/null
-}
-
 # Copies a built file (e.g. a binary or library) to <destination>, joining the architectures if
 # universal.
 install_built() { # <file name in the target directory> <destination>

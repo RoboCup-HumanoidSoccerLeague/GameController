@@ -6,8 +6,7 @@ This is the GameController software for robot soccer games in the RoboCup Humano
 
 ### Prerequisites
 
-- Rust and other platform-specific tauri dependencies as [listed here](https://tauri.app/start/prerequisites/)
-- nodejs and npm (or a compatible package manager)
+- Rust 1.95 or newer (the user interface is built with [egui](https://github.com/emilk/egui))
 - libclang (for bindgen)
     - On Windows:
     ```powershell
@@ -17,34 +16,26 @@ This is the GameController software for robot soccer games in the RoboCup Humano
 
 ### Commands
 
-First, the frontend must be compiled:
-
-```bash
-cd frontend
-npm ci
-npm run build
-```
-
-The Rust code is compiled with cargo:
+Everything is compiled with cargo:
 
 ```bash
 cargo build [-r]
+```
+
+The application is run with:
+
+```bash
+cargo run [-r] [-- <options>]
 ```
 
 #### Dev
 
 First, thank you for contributing to development.
 
-This will install the tauri CLI:
+The user interface can be driven by tools such as AI agents through [`egui_inspection`](https://crates.io/crates/egui_inspection) (for example with the MCP server [`egui_mcp`](https://crates.io/crates/egui_mcp)) when the app is built and started like this:
 
 ```bash
-cargo install tauri-cli
-```
-
-This will start the frontend and backend in dev mode:
-
-```bash
-cargo tauri dev
+EGUI_INSPECTION=1 cargo run --features eframe/inspection
 ```
 
 ### Creating Binary Distributions

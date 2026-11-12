@@ -5,25 +5,19 @@ edition = { workspace = true }
 license = { workspace = true }
 name = "game_controller_app"
 repository = { workspace = true }
-rust-version = { workspace = true }
+# egui/eframe require a newer compiler than the rest of the workspace.
+rust-version = "1.95"
 version = { workspace = true }
-
-[build-dependencies]
-tauri-build = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true }
+eframe = { workspace = true }
+enum-map = { workspace = true }
 game_controller_core = { workspace = true }
 game_controller_runtime = { workspace = true }
-tauri = { workspace = true }
-tauri-plugin-dialog = { workspace = true }
 tokio = { workspace = true }
 
-[features]
-# by default Tauri runs in production mode
-# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
-default = ["custom-protocol"]
-# this feature is used for production builds where `devPath` points to the filesystem
-# DO NOT remove this
-custom-protocol = ["tauri/custom-protocol"]
+# The icon of the executable on Windows (shown by the Explorer, shortcuts and the list of installed
+# apps) is a resource that the build script embeds.
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"

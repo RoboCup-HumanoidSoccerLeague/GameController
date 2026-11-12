@@ -9,7 +9,7 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use enum_map::enum_map;
 use network_interface::NetworkInterfaceConfig;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use game_controller_core::types::{
     Color, CompetitionParams, GameParams, Side, SideMapping, TeamParams, TestParams,
@@ -18,7 +18,7 @@ use game_controller_core::types::{
 use crate::cli::Args;
 
 /// This struct describes a single entry in `config/teams.yaml`.
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     /// The number of the team. This is a (more or less) unique identifier across competitions.
@@ -32,8 +32,7 @@ pub struct Team {
 }
 
 /// This struct describes a competition (a subdirectory in `config`).
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct Competition {
     /// The machine-readable name of the competition. This is the name of the competition's
     /// subdirectory in `config`.
@@ -45,8 +44,7 @@ pub struct Competition {
 }
 
 /// This struct describes a network interface.
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct NetworkInterface {
     /// The system-specific name of the network interface.
     pub id: String,
@@ -57,8 +55,7 @@ pub struct NetworkInterface {
 }
 
 /// This struct describes settings related to the competition type.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct CompetitionSettings {
     /// The ID of the competition (must match some [Competition::id]).
     pub id: String,
@@ -68,16 +65,14 @@ pub struct CompetitionSettings {
 pub type GameSettings = GameParams;
 
 /// This struct describes settings related to the main window.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct WindowSettings {
     /// Whether the main window should be started in fullscreen mode.
     pub fullscreen: bool,
 }
 
 /// This struct describes settings for the network.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct NetworkSettings {
     /// The name of the network interface on which to run network services.
     pub interface: String,
@@ -88,8 +83,7 @@ pub struct NetworkSettings {
 }
 
 /// This struct describes settings for logging.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct LogSettings {
     /// Whether the log file should be synced to the storage device after each entry.
     pub sync: bool,
@@ -98,8 +92,7 @@ pub struct LogSettings {
 }
 
 /// This represents the overall settings that can be configured in the launcher.
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone)]
 pub struct LaunchSettings {
     /// Settings related to the competition type.
     pub competition: CompetitionSettings,
@@ -113,9 +106,8 @@ pub struct LaunchSettings {
     pub log: LogSettings,
 }
 
-/// The bundle of data that is passed to JavaScript.
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+/// The bundle of data that the launcher is created from.
+#[derive(Clone)]
 pub struct LaunchData {
     /// The list of selectable competitions.
     pub competitions: Vec<Competition>,

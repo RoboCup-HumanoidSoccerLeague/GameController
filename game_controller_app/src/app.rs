@@ -171,7 +171,6 @@ impl App {
         });
         let view = MainView::new(runtime_state.params.clone(), team_names);
 
-        ctx.send_viewport_cmd(ViewportCommand::Resizable(true));
         ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(MIN_MAIN_WINDOW_SIZE));
         if settings.window.fullscreen {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(true));

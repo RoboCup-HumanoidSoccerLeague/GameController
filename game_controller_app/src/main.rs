@@ -101,8 +101,8 @@ fn main() {
             // The window class (X11) / app ID (Wayland) matches StartupWMClass in the desktop
             // entry of the Linux distribution, which lets desktops associate the two.
             .with_app_id("GameController")
+            .with_min_inner_size(LAUNCHER_SIZE)
             .with_inner_size(LAUNCHER_SIZE)
-            .with_resizable(false)
             .with_icon(
                 eframe::icon_data::from_png_bytes(include_bytes!("../icons/icon.png"))
                     .expect("the icon must be a valid PNG"),

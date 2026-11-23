@@ -39,6 +39,8 @@ autoreferee = Autoreferee(
     ),
     time_until_switch_to_set=2.0,
     time_until_switch_to_playing=1.0,
+    time_until_resume=3.0,  # play stays stopped this long after a throw-in etc. was awarded
+    time_until_ball_free=1.0,  # the set play ends this long after the ball clearly moved after the kick
     penalty_placement_distance=0.3,
 )
 
@@ -51,6 +53,10 @@ for command in autoreferee.update(gc, (0.0, 0.0, 0.05), {(Side.HOME, 1): PlayerP
         ...  # move the ball to (command.x, command.y, command.z)
     elif isinstance(command, Command.PlacePlayer):
         ...  # move player command.player of command.side to (command.x, command.y, command.theta)
+    elif isinstance(command, Command.PlaceForWalkIn):
+        ...  # put command.player of command.side to its walk-in pose
+    elif isinstance(command, Command.WalkInComplete):
+        ...  # all walk-in placements have been made, it is safe to switch to Ready etc.
     elif isinstance(command, Command.Whistle):
         ...
 data = gc.control_message()  # the bytes of a RoboCupGameControlData struct, as sent to the players

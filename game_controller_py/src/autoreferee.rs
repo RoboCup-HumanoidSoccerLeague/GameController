@@ -138,7 +138,8 @@ impl PlayerPose {
 /// This enumerates the commands that the simulator should execute.
 #[pyclass(module = "game_controller")]
 pub enum Command {
-    /// Move the ball to a given position and reset its velocity.
+    /// Move the ball to a given position and reset its velocity. This is commanded again if the
+    /// ball is not observed there after a while.
     PlaceBall { x: f32, y: f32, z: f32 },
     /// Move a player to a given upright pose.
     PlacePlayer {
@@ -148,30 +149,40 @@ pub enum Command {
         y: f32,
         theta: f32,
     },
+    /// Move a player to its pose for the walk-in, because the state changed to Initial or Timeout.
+    /// This is only requested for players that are present and not penalized, once they have
+    /// come to rest (or after 3 seconds at the latest).
+    PlaceForWalkIn { side: Side, player: u8 },
+    /// All requested walk-in placements have been commanded (there might have been none, e.g. if
+    /// no player is present). It is safe to proceed (e.g. to switch to Ready) after this. It is
+    /// not sent if the state changed before.
+    WalkInComplete {},
     /// Notify the players that the whistle has been blown.
     Whistle {},
 }
 
 #[pymethods]
 impl Command {
-    fn __repr__(&self) -> String {
-        match self {
+    fn __repr__(&self, py: Python<'_>) -> PyResult<String> {
+        let side = |side: &Side| Bound::new(py, *side)?.as_any().repr();
+        Ok(match self {
             Self::PlaceBall { x, y, z } => format!("Command.PlaceBall(x={x}, y={y}, z={z})"),
             Self::PlacePlayer {
-                side,
+                side: s,
                 player,
                 x,
                 y,
                 theta,
             } => format!(
-                "Command.PlacePlayer(side=Side.{}, player={player}, x={x}, y={y}, theta={theta})",
-                match side {
-                    Side::Home => "HOME",
-                    Side::Away => "AWAY",
-                }
+                "Command.PlacePlayer(side={}, player={player}, x={x}, y={y}, theta={theta})",
+                side(s)?
             ),
+            Self::PlaceForWalkIn { side: s, player } => {
+                format!("Command.PlaceForWalkIn(side={}, player={player})", side(s)?)
+            }
+            Self::WalkInComplete {} => "Command.WalkInComplete()".to_string(),
             Self::Whistle {} => "Command.Whistle()".to_string(),
-        }
+        })
     }
 }
 
@@ -194,17 +205,32 @@ impl From<game_controller_autoreferee::Command> for Command {
                 y,
                 theta,
             },
+            game_controller_autoreferee::Command::PlaceForWalkIn { side, player } => {
+                Self::PlaceForWalkIn {
+                    side: side.into(),
+                    player: player.into(),
+                }
+            }
+            game_controller_autoreferee::Command::WalkInComplete => Self::WalkInComplete {},
             game_controller_autoreferee::Command::Whistle => Self::Whistle {},
+        }
+    }
+}
+
+impl From<&PlayerPose> for CorePlayerPose {
+    fn from(value: &PlayerPose) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+            theta: value.theta,
+            radius: value.radius,
         }
     }
 }
 
 /// This class is the automatic referee. Times are given in seconds.
 #[pyclass(module = "game_controller")]
-pub struct Autoreferee {
-    autoreferee: game_controller_autoreferee::Autoreferee,
-    features: Features,
-}
+pub struct Autoreferee(game_controller_autoreferee::Autoreferee);
 
 #[pymethods]
 impl Autoreferee {
@@ -214,19 +240,21 @@ impl Autoreferee {
         field: &FieldDimensions,
         time_until_switch_to_set: f64,
         time_until_switch_to_playing: f64,
+        time_until_resume: f64,
+        time_until_ball_free: f64,
         penalty_placement_distance: f32,
     ) -> PyResult<Self> {
-        let features = self::features(features)?;
-        Ok(Self {
-            autoreferee: game_controller_autoreferee::Autoreferee::new(Config {
-                features,
+        Ok(Self(game_controller_autoreferee::Autoreferee::new(
+            Config {
+                features: self::features(features)?,
                 field: field.into(),
                 time_until_switch_to_set: duration(time_until_switch_to_set)?,
                 time_until_switch_to_playing: duration(time_until_switch_to_playing)?,
+                time_until_resume: duration(time_until_resume)?,
+                time_until_ball_free: duration(time_until_ball_free)?,
                 penalty_placement_distance,
-            }),
-            features,
-        })
+            },
+        )))
     }
 
     /// The features that are enabled. Changing them keeps the rest of the state.
@@ -234,13 +262,12 @@ impl Autoreferee {
     fn get_features<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         py.import("game_controller")?
             .getattr("Features")?
-            .call1((self.features.bits(),))
+            .call1((self.0.features().bits(),))
     }
 
     #[setter]
     fn set_features(&mut self, features: u32) -> PyResult<()> {
-        self.features = self::features(features)?;
-        self.autoreferee.set_features(self.features);
+        self.0.set_features(self::features(features)?);
         Ok(())
     }
 
@@ -264,15 +291,10 @@ impl Autoreferee {
         for ((side, player), pose) in players {
             let side: game_controller_core::types::Side = side.into();
             let index = usize::from(u8::from(player_number(player)?)) - 1;
-            world.players[side][index] = Some(CorePlayerPose {
-                x: pose.x,
-                y: pose.y,
-                theta: pose.theta,
-                radius: pose.radius,
-            });
+            world.players[side][index] = Some((&*pose).into());
         }
         Ok(self
-            .autoreferee
+            .0
             .update(&mut game_controller.0, &world)
             .into_iter()
             .map(Command::from)
@@ -288,7 +310,7 @@ impl Autoreferee {
         side: Side,
         player: u8,
     ) -> PyResult<()> {
-        self.autoreferee
+        self.0
             .ball_contact(&mut game_controller.0, side.into(), player_number(player)?);
         Ok(())
     }

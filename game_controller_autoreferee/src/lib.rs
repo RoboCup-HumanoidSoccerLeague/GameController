@@ -18,6 +18,11 @@
 //! [GameController::seek], then call [Autoreferee::update] and execute the returned commands.
 //! In every step in which a player touches the ball, [Autoreferee::ball_contact] should be called.
 //!
+//! Commands don't have to take effect immediately (e.g. if a human places the robots). The
+//! automatic referee checks in the following updates whether the ball has arrived where it
+//! should be (and commands it again if it hasn't after a while), and play is only resumed once
+//! it is there.
+//!
 //! All timing of the automatic referee (e.g. for game stuck or the ball stop rule) ignores the
 //! time while play is stopped.
 
@@ -68,9 +73,10 @@ bitflags! {
         /// Do not count goals that are scored directly from restarts that don't allow it (e.g.
         /// from a kick-off or a throw-in). Instead, a goal kick or corner kick is awarded. Without
         /// this flag, every ball that is in a goal counts. Only has an effect together with
-        /// [Self::BALL_OUT].
+        /// `BALL_OUT`.
         const INVALID_GOAL = 1 << 4;
-        /// Finish set plays early when the ball is touched by the kicking team.
+        /// Finish set plays early when the ball has clearly moved (by at least its radius) after
+        /// the kicking team touched it.
         const BALL_FREE = 1 << 5;
         /// Award an indirect free kick to the opponents when the kicker of a throw-in, goal kick
         /// or corner kick touches the ball again before another player does.
@@ -87,7 +93,9 @@ bitflags! {
         /// were unpenalized (e.g. after drifting while they were penalized).
         const PENALIZE_LEAVING_THE_FIELD = 1 << 9;
         /// Penalize players that are illegally positioned. For penalty kicks, the goalkeeper is
-        /// placed on the goal line instead, and leaving it early results in a goal.
+        /// placed on the goal line instead, and leaving it early results in a goal. Defenders in
+        /// the avoidance region of a free kick are tolerated the longer, the less deep they are
+        /// inside, and the ball is put back if a defender played it before the kicker did.
         const PENALIZE_ILLEGAL_POSITIONING = 1 << 10;
         /// Penalize players that move in Set.
         const PENALIZE_MOTION_IN_SET = 1 << 11;
@@ -95,17 +103,26 @@ bitflags! {
         const PENALIZE_MOTION_IN_STOP = 1 << 12;
         /// Start the penalty timers of penalized players right away (as if they had been returned
         /// by a robot handler) and unpenalize them when their timers are up. This doesn't check
-        /// whether they are placed correctly.
+        /// whether they are placed correctly. Picked-up players are not affected (see
+        /// `PICK_UP_ABSENT_PLAYERS`).
         const UNPENALIZE = 1 << 13;
+        /// Pick up players that are not present (they get the picked-up penalty), and return
+        /// picked-up players when they are present: They are unpenalized like with `UNPENALIZE`
+        /// (which doesn't touch picked-up players) and placed like with `PLACE_FOR_PENALTY`.
+        const PICK_UP_ABSENT_PLAYERS = 1 << 14;
 
         // Placing players and the ball.
+        /// Tell the environment to place the players at their poses for the walk-in whenever the
+        /// state changes to Initial or Timeout (and when the automatic referee first sees the game),
+        /// except in a penalty shoot-out.
+        const PLACE_FOR_WALK_IN = 1 << 15;
         /// Place players that are penalized (and substitutes that enter the game) at the edge of
         /// the carpet in their own half.
-        const PLACE_FOR_PENALTY = 1 << 14;
+        const PLACE_FOR_PENALTY = 1 << 16;
         /// Place players in a penalty shoot-out.
-        const PLACE_FOR_PENALTY_SHOOT_OUT = 1 << 15;
+        const PLACE_FOR_PENALTY_SHOOT_OUT = 1 << 17;
         /// Place the ball for set plays (including kick-off, penalty kick, penalty shoot-out).
-        const PLACE_BALL = 1 << 16;
+        const PLACE_BALL = 1 << 18;
     }
 }
 
@@ -143,6 +160,35 @@ pub struct FieldDimensions {
     pub ball_radius: f32,
 }
 
+// Positions on lines refer to their centers (the dimensions refer to the outer edges of lines).
+// x-coordinates are given for the positive half and the y-coordinate for the positive side.
+impl FieldDimensions {
+    /// The x-coordinate of the goal line.
+    pub(crate) fn goal_line_x(&self) -> f32 {
+        self.length * 0.5 - self.line_width * 0.5
+    }
+
+    /// The y-coordinate of the touchline.
+    pub(crate) fn touchline_y(&self) -> f32 {
+        self.width * 0.5 - self.line_width * 0.5
+    }
+
+    /// The x-coordinate of the line of the goal area that is parallel to the goal line.
+    pub(crate) fn goal_area_line_x(&self) -> f32 {
+        self.length * 0.5 - self.goal_area_length + self.line_width * 0.5
+    }
+
+    /// The x-coordinate of the line of the penalty area that is parallel to the goal line.
+    pub(crate) fn penalty_area_line_x(&self) -> f32 {
+        self.length * 0.5 - self.penalty_area_length + self.line_width * 0.5
+    }
+
+    /// The x-coordinate of the penalty mark.
+    pub(crate) fn penalty_mark_x(&self) -> f32 {
+        self.length * 0.5 - self.penalty_mark_distance
+    }
+}
+
 /// This struct contains the constant configuration of the automatic referee.
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -155,6 +201,13 @@ pub struct Config {
     pub time_until_switch_to_set: Duration,
     /// The time in Set after which the automatic referee switches to Playing.
     pub time_until_switch_to_playing: Duration,
+    /// The time for which play stays stopped after a restart (e.g. a throw-in) has been awarded,
+    /// before the automatic referee resumes it. The ball is placed right away (if its spot is
+    /// free), and play is not resumed before it is there.
+    pub time_until_resume: Duration,
+    /// The time between the ball clearly moving (by at least its radius) after the kicking team
+    /// touched it and the automatic referee finishing the set play ("ball free").
+    pub time_until_ball_free: Duration,
     /// The minimum distance between players that are placed for a penalty.
     pub penalty_placement_distance: f32,
 }
@@ -185,7 +238,8 @@ pub struct World {
 /// This enumerates the commands that the simulator should execute.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Command {
-    /// Move the ball to a given position and reset its velocity.
+    /// Move the ball to a given position and reset its velocity. This is commanded again if the
+    /// ball is not observed there after a while.
     PlaceBall {
         /// The new position of the ball.
         position: [f32; 3],
@@ -203,6 +257,19 @@ pub enum Command {
         /// The new rotation of the player around the z-axis.
         theta: f32,
     },
+    /// Move a player to its pose for the walk-in, because the state changed to Initial or Timeout.
+    /// This is only requested for players that are present and not penalized, once they have
+    /// come to rest (or after 3 seconds at the latest).
+    PlaceForWalkIn {
+        /// The side of the player.
+        side: Side,
+        /// The number of the player.
+        player: PlayerNumber,
+    },
+    /// All requested walk-in placements have been commanded (there might have been none, e.g. if
+    /// no player is present). It is safe to proceed (e.g. to switch to Ready) after this. It is
+    /// not sent if the state changed before.
+    WalkInComplete,
     /// Notify the players that the whistle has been blown.
     Whistle,
 }
@@ -248,57 +315,132 @@ struct Restart {
     ball_moved_since_kick: bool,
 }
 
+impl Restart {
+    /// This function creates a restart that nobody has touched the ball for yet.
+    fn new(kind: RestartKind, set_play: SetPlay, side: Side) -> Self {
+        Self {
+            kind,
+            set_play,
+            side,
+            kicker: None,
+            kick_position: [0.0; 2],
+            other_touch: false,
+            kicker_touched_outside_center_circle: false,
+            kicker_touched_far_from_kick: false,
+            ball_moved_since_kick: false,
+        }
+    }
+}
+
+/// This struct contains what the automatic referee keeps track of during a set play. It is reset
+/// whenever a set play starts.
+#[derive(Clone, Debug, Default)]
+struct SetPlayState {
+    /// The player which is allowed to take the current kick-off / penalty kick.
+    kicking_player: Option<PlayerNumber>,
+    /// The time at which the set play is finished because the ball has clearly moved after the
+    /// kick.
+    ball_free_at: Option<Duration>,
+    /// The position of the ball when the avoidance region became active.
+    ball_position: Option<[f32; 3]>,
+}
+
+/// This struct describes a placement of the ball that has been requested but not been observed
+/// yet. The ball is only placed when no player is in the way, and play is only resumed (or
+/// started) when it is there.
+#[derive(Clone, Debug)]
+struct PendingBall {
+    /// Where the ball should be placed.
+    position: [f32; 3],
+    /// The direction along which the ball may be shifted if its position is blocked for too long
+    /// (e.g. along the touchline for a throw-in).
+    along: [f32; 2],
+    /// The GameController time when the placement was requested.
+    requested_at: Duration,
+    /// The GameController time when the placement was commanded last.
+    commanded_at: Option<Duration>,
+    /// Whether this puts the ball back after a defender played it, which is obsolete once the
+    /// kicker played it.
+    put_back: bool,
+    /// Whether the ball has been observed at its spot. The request is kept until play is live
+    /// again, so that the ball is placed again if it is moved in the meantime (e.g. by a robot
+    /// that touches it while play is stopped).
+    arrived: bool,
+}
+
 /// This struct represents the automatic referee. It contains its configuration and the state that
-/// it keeps between updates.
+/// it keeps between updates. Times are according to [Self::clock] unless stated otherwise.
 pub struct Autoreferee {
     config: Config,
     /// The game state at the end of the last observation (used to detect changes).
     last_game: Option<Game>,
-    /// The GameController time when the current state (or phase) began.
+    /// The world in the last update, with which invalid parts of the next one are replaced.
+    last_world: Option<World>,
+    /// The time when the current state (or phase) began.
     time_when_state_began: Duration,
-    /// The GameController time when the current set play began.
+    /// The time when the current set play began.
     time_when_set_play_began: Duration,
-    /// The GameController time when any player moved last (only tracked in Ready).
+    /// The time when any player moved last (only tracked in Ready).
     time_when_player_moved: Option<Duration>,
+    /// The GameController time when each player moved last (or appeared).
+    player_moved_at: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]>,
     /// The poses of the players when they were considered to move last.
     last_poses: EnumMap<Side, [Option<PlayerPose>; NUM_PLAYERS]>,
     /// The side which touched the ball last.
     last_contact: Option<Side>,
-    /// The player which is allowed to take the current kick-off / penalty kick.
-    kicking_player: Option<PlayerNumber>,
+    /// What is tracked during the current set play.
+    set_play: SetPlayState,
     /// Whether players have been penalized and have not been on the field since.
     returning: EnumMap<Side, [bool; NUM_PLAYERS]>,
     /// How far returning players were beyond the edge of the carpet when they were unpenalized
     /// (at least 0), which they may be without leaving the field.
     return_allowance: EnumMap<Side, [Option<f32>; NUM_PLAYERS]>,
-    /// Whether players (of the defending team) have been outside the avoidance region since the
-    /// current set play began.
-    left_avoidance: EnumMap<Side, [bool; NUM_PLAYERS]>,
+    /// Which players were present in the last observation.
+    was_present: Option<EnumMap<Side, [bool; NUM_PLAYERS]>>,
+    /// Where each penalized player was placed by the automatic referee (x, y, theta), so that it
+    /// can be placed there again if it drifts away while serving its penalty.
+    penalty_pose: EnumMap<Side, [Option<[f32; 3]>; NUM_PLAYERS]>,
+    /// Which players still have to be placed for the walk-in (once they have come to rest), and
+    /// since when (GameController time).
+    walk_in_pending: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]>,
+    /// Whether the walk-in has been requested and [Command::WalkInComplete] has not been sent yet.
+    walk_in_requested: bool,
+    /// The placement of the ball that has been requested but not been observed yet.
+    pending_ball: Option<PendingBall>,
+    /// Whether the ball has been inside the field since it was last called out of bounds.
+    ball_in_play: bool,
+    /// Since when each player has been within the proximity of the ball, for local game stuck.
+    near_ball_since: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]>,
+    /// Whether players are picked up because the automatic referee did it (and not the user).
+    picked_up_by_autoreferee: EnumMap<Side, [bool; NUM_PLAYERS]>,
+    /// The GameController time from which on play is resumed after a restart (once the ball is
+    /// in place).
+    resume_at: Option<Duration>,
     /// Whether players were inside their own goal area in the last update.
     in_goal_area: EnumMap<Side, [bool; NUM_PLAYERS]>,
     /// The position of the ball in the last update.
     ball: [f32; 3],
     /// The position of the ball when it was considered to move last.
     ball_reference: Option<[f32; 3]>,
-    /// The GameController time when the ball moved last.
+    /// The time when the ball moved last.
     time_when_ball_moved: Duration,
     /// The position of the ball (and the time) since which it hasn't moved significantly, for
     /// local game stuck.
     stuck_reference: Option<([f32; 2], Duration)>,
-    /// The GameController time when any player was close to the ball last, for global game stuck.
+    /// The time when any player was close to the ball last, for global game stuck.
     time_when_player_near_ball: Duration,
-    /// The GameController time since when the ball is stuck between the legs of each player.
+    /// The time since when the ball is stuck between the legs of each player.
     ball_stuck_since: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]>,
     /// The last touch of the ball and when it ended.
     last_touch: Option<(Side, PlayerNumber, Duration)>,
     /// The restart of play that is currently in effect.
     restart: Option<Restart>,
     /// A clock that only advances while play is not stopped. All timing (except for motion while
-    /// play is stopped) uses this clock.
+    /// play is stopped, resuming play and placements) uses this clock.
     clock: Duration,
     /// The GameController time when [Self::clock] was advanced last.
     last_gc_time: Option<Duration>,
-    /// The time (according to [Self::clock]) when each player touched the ball last.
+    /// The time when each player touched the ball last.
     last_contact_time: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]>,
     /// The GameController time from which on players must not move (in Set or while play is
     /// stopped).
@@ -335,15 +477,16 @@ impl Autoreferee {
     const BALL_MOVEMENT_DISTANCE: f32 = 0.01;
     /// The time the ball must not have moved to be at rest.
     const BALL_REST_DURATION: Duration = Duration::from_secs(1);
-    /// The distance the ball must have moved after a kick to have clearly moved.
-    const BALL_CLEARLY_MOVED_DISTANCE: f32 = 0.1;
     /// The time after which the half ends even if the ball is still moving (ball stop rule).
     const BALL_STOP_RULE_MAX_EXTENSION: SignedDuration = SignedDuration::seconds(10);
     /// Contacts of the same player that are closer in time than this count as one touch.
     const TOUCH_DEBOUNCE: Duration = Duration::from_millis(200);
-    /// The time after the beginning of a set play in which defenders may leave the avoidance
-    /// region (if they have been in there since the beginning).
+    /// The time after the beginning of a set play after which no defender may be in the avoidance
+    /// region anymore. Until then, the allowed depth decreases linearly.
     const AVOIDANCE_GRACE_PERIOD: SignedDuration = SignedDuration::seconds(10);
+    /// The time after the beginning of a set play in which defenders in the avoidance region are
+    /// not penalized at all, since they cannot react instantly.
+    const AVOIDANCE_REACTION_TIME: SignedDuration = SignedDuration::milliseconds(500);
     /// The distance from the ball (from the edge of a player) within which a player counts as
     /// close for global game stuck.
     const GLOBAL_GAME_STUCK_DISTANCE: f32 = 1.0;
@@ -370,21 +513,44 @@ impl Autoreferee {
     /// of the carpet before it is penalized for leaving the field. A placed player may still have
     /// momentum (or fall over) and drift outwards while it is penalized.
     const RETURN_TOLERANCE: f32 = 0.05;
+    /// The time a player must not have moved before it is placed for the walk-in, so that it
+    /// doesn't walk away from its pose because of its momentum.
+    const WALK_IN_SETTLE_TIME: Duration = Duration::from_secs(1);
+    /// The time after which a player is placed for the walk-in even if it is still moving, so that
+    /// a player that never comes to rest doesn't block the game forever.
+    const WALK_IN_MAX_WAIT: Duration = Duration::from_secs(3);
+    /// The time for which a placement of the ball waits for a player to leave the spot before
+    /// the ball is placed next to it instead.
+    const BALL_PLACEMENT_PATIENCE: Duration = Duration::from_secs(3);
+    /// The maximum distance by which a ball placement is shifted if its spot is blocked.
+    const BALL_PLACEMENT_MAX_SHIFT: f32 = 2.0;
+    /// The time after which a placement that has not been observed is commanded again.
+    const PLACEMENT_RETRY_TIME: Duration = Duration::from_secs(1);
 
     /// This function creates a new automatic referee.
     pub fn new(config: Config) -> Self {
         Self {
             config,
             last_game: None,
+            last_world: None,
             time_when_state_began: Duration::ZERO,
             time_when_set_play_began: Duration::ZERO,
             time_when_player_moved: None,
+            player_moved_at: EnumMap::default(),
             last_poses: EnumMap::default(),
             last_contact: None,
-            kicking_player: None,
+            set_play: SetPlayState::default(),
             returning: EnumMap::default(),
             return_allowance: EnumMap::default(),
-            left_avoidance: EnumMap::default(),
+            was_present: None,
+            penalty_pose: EnumMap::default(),
+            walk_in_pending: EnumMap::default(),
+            walk_in_requested: false,
+            pending_ball: None,
+            ball_in_play: true,
+            near_ball_since: EnumMap::default(),
+            picked_up_by_autoreferee: EnumMap::default(),
+            resume_at: None,
             in_goal_area: EnumMap::default(),
             ball: [0.0; 3],
             ball_reference: None,
@@ -417,9 +583,39 @@ impl Autoreferee {
         self.last_gc_time = Some(now);
     }
 
+    /// This function returns the enabled features.
+    pub fn features(&self) -> Features {
+        self.config.features
+    }
+
     /// This function changes the enabled features (e.g. because the user toggled them).
     pub fn set_features(&mut self, features: Features) {
         self.config.features = features;
+    }
+
+    /// This function replaces the parts of the world that are not finite (which a simulator may
+    /// report e.g. after a physics glitch) by their values from the last update. Players without
+    /// a valid pose in the last update are treated as absent.
+    fn sanitize(&mut self, world: &World) -> World {
+        let mut world = world.clone();
+        if !world.ball.iter().all(|value| value.is_finite()) {
+            world.ball = self.ball;
+        }
+        for (side, player) in all_players() {
+            let i = index(player);
+            if world.players[side][i].is_some_and(|pose| {
+                ![pose.x, pose.y, pose.theta, pose.radius]
+                    .iter()
+                    .all(|value| value.is_finite())
+            }) {
+                world.players[side][i] = self
+                    .last_world
+                    .as_ref()
+                    .and_then(|last| last.players[side][i]);
+            }
+        }
+        self.last_world = Some(world.clone());
+        world
     }
 
     /// This function runs the automatic referee for one step. It may apply actions to the
@@ -427,22 +623,51 @@ impl Autoreferee {
     pub fn update(&mut self, gc: &mut GameController, world: &World) -> Vec<Command> {
         let mut commands = vec![];
         let features = self.config.features;
+        let world = &self.sanitize(world);
         self.advance_clock(gc);
 
         // Observe changes that happened since the last update (e.g. by the user or timers). This
         // is repeated after each step so that the next step sees consistent timestamps.
         self.observe(gc, world, &mut commands);
 
-        self.detect_movement(world);
-        self.track_ball(world);
+        let game = gc.get_game(false);
+        for (side, player) in all_players() {
+            if game.teams[side][player].penalty != Penalty::PickedUp {
+                self.picked_up_by_autoreferee[side][index(player)] = false;
+            }
+            if matches!(
+                game.teams[side][player].penalty,
+                Penalty::NoPenalty | Penalty::Substitute
+            ) {
+                self.penalty_pose[side][index(player)] = None;
+            }
+        }
+        // Whether the ball has arrived must be known before play may be resumed.
+        self.place_ball(gc, world, &mut commands);
+        if self.apply_delayed_actions(gc) {
+            self.observe(gc, world, &mut commands);
+        }
+
+        if features.contains(Features::PICK_UP_ABSENT_PLAYERS) {
+            self.pick_up_absent_players(gc, world);
+            self.observe(gc, world, &mut commands);
+        }
+
+        self.detect_movement(gc, world);
+        self.track_ball(gc, world);
+        if self.schedule_ball_free(gc) {
+            self.observe(gc, world, &mut commands);
+        }
         self.update_returning(gc, world);
-        self.update_avoidance(gc, world);
 
         if features.intersects(
             Features::PENALIZE_LEAVING_THE_FIELD | Features::PENALIZE_ILLEGAL_POSITIONING,
         ) {
             self.penalize_players(gc, world);
             self.observe(gc, world, &mut commands);
+        }
+        if features.contains(Features::PLACE_FOR_PENALTY) {
+            self.replace_drifted_players(world, &mut commands);
         }
         if features.contains(Features::PENALIZE_ILLEGAL_POSITIONING) {
             self.check_penalty_goalkeeper(gc, world);
@@ -476,11 +701,14 @@ impl Autoreferee {
             self.switch_to_finished(gc);
             self.observe(gc, world, &mut commands);
         }
-        if features.contains(Features::UNPENALIZE) {
-            self.unpenalize_players(gc);
+        if features.intersects(Features::UNPENALIZE | Features::PICK_UP_ABSENT_PLAYERS) {
+            self.unpenalize_players(gc, world);
             self.observe(gc, world, &mut commands);
         }
 
+        // Placements that were requested in this update are commanded right away.
+        self.place_ball(gc, world, &mut commands);
+        self.place_for_walk_in(gc, world, &mut commands);
         commands
     }
 
@@ -488,26 +716,22 @@ impl Autoreferee {
     /// simulation step in which the player is in contact with the ball (contacts in quick
     /// succession count as one touch), since clearing a ball that is stuck between a player's legs
     /// depends on it.
+    ///
+    /// Contacts of players that are penalized (or substitutes) are ignored. They are not part of
+    /// the game, and e.g. a ball that rolls into a player that serves its penalty next to the
+    /// field is out of bounds anyway. So are contacts while play is stopped, which are not part of
+    /// the game either (the ball is placed again if it was moved).
     pub fn ball_contact(&mut self, gc: &mut GameController, side: Side, player: PlayerNumber) {
         self.advance_clock(gc);
+        let game = gc.get_game(false);
+        if game.stopped || game.teams[side][player].penalty != Penalty::NoPenalty {
+            return;
+        }
         let now = self.clock;
 
         // Save the last contact for the next time the ball goes out of bounds.
         self.last_contact = Some(side);
         self.last_contact_time[side][index(player)] = Some(now);
-
-        // Check if this contact ends a set play.
-        let game = gc.get_game(false);
-        if self.config.features.contains(Features::BALL_FREE)
-            && game.phase != Phase::PenaltyShootout
-            && game.state == State::Playing
-            && game.set_play != SetPlay::NoSetPlay
-            && game.kicking_side == Some(side)
-            && now >= self.time_when_state_began + Self::BALL_FREE_GRACE_PERIOD
-            && now >= self.time_when_set_play_began + Self::BALL_FREE_GRACE_PERIOD
-        {
-            apply(gc, VAction::FinishSetPlay(FinishSetPlay));
-        }
 
         // Contacts of the same player in quick succession count as one touch.
         let is_new_touch = !self.last_touch.is_some_and(|(s, p, time)| {
@@ -524,6 +748,30 @@ impl Autoreferee {
         let far_from_kick_distance = 2.0 * self.config.field.center_circle_radius;
         let small_team =
             rules::players_on_field(gc.get_game(false), &self.last_poses[side], side) <= 2;
+        let untaken_restart_side = self
+            .restart
+            .as_ref()
+            .filter(|restart| restart.kicker.is_none())
+            .map(|restart| restart.side);
+        if let Some(restart_side) =
+            untaken_restart_side.filter(|_| rules::is_avoidance_region_active(gc.get_game(false)))
+        {
+            if side != restart_side {
+                // The ball is put back where it was before the defender played it (as soon as
+                // nobody is in the way anymore).
+                if self.config.features.contains(Features::PLACE_BALL) {
+                    let position = *self.set_play.ball_position.get_or_insert(self.ball);
+                    self.request_ball(gc, position, [1.0, 0.0], true);
+                }
+            } else if self
+                .pending_ball
+                .as_ref()
+                .is_some_and(|pending| pending.put_back)
+            {
+                // The kicker played the ball before it could be put back.
+                self.pending_ball = None;
+            }
+        }
         let Some(restart) = self.restart.as_mut() else {
             return;
         };
@@ -575,7 +823,7 @@ impl Autoreferee {
                     set_play: SetPlay::IndirectFreeKick,
                 }),
             ) {
-                apply(gc, VAction::StopPlay(StopPlay { resume: true }));
+                self.resume_play(gc);
             }
         }
     }
@@ -585,76 +833,85 @@ impl Autoreferee {
     fn observe(&mut self, gc: &GameController, world: &World, commands: &mut Vec<Command>) {
         let now = self.clock;
         let game = gc.get_game(false);
+        let was_present = self.was_present.replace(EnumMap::from_fn(|side| {
+            std::array::from_fn(|i| world.players[side][i].is_some())
+        }));
+        let walk_in = self.config.features.contains(Features::PLACE_FOR_WALK_IN)
+            && game.phase != Phase::PenaltyShootout
+            && matches!(game.state, State::Initial | State::Timeout);
         let Some(last) = self.last_game.replace(game.clone()) else {
             self.time_when_state_began = now;
             self.time_when_set_play_began = now;
+            if walk_in {
+                self.request_walk_in(gc, world);
+            }
             return;
         };
         let features = self.config.features;
-        let field = &self.config.field;
+        let field = self.config.field;
 
         if game.state != last.state || game.phase != last.phase {
             self.time_when_state_began = now;
+            // A placement for the previous state is obsolete.
+            self.pending_ball = None;
         }
 
         if game.set_play != SetPlay::NoSetPlay
             && (game.set_play != last.set_play || game.kicking_side != last.kicking_side)
         {
             self.time_when_set_play_began = now;
-            self.kicking_player = None;
-            self.left_avoidance = EnumMap::default();
-            self.restart = game.kicking_side.map(|side| Restart {
-                kind: match game.set_play {
-                    SetPlay::KickOff => RestartKind::KickOff,
-                    SetPlay::ThrowIn | SetPlay::IndirectFreeKick => RestartKind::Indirect,
-                    _ => RestartKind::Direct,
-                },
-                set_play: game.set_play,
-                side,
-                kicker: None,
-                kick_position: [0.0; 2],
-                other_touch: false,
-                kicker_touched_outside_center_circle: false,
-                kicker_touched_far_from_kick: false,
-                ball_moved_since_kick: false,
-            });
+            self.set_play = SetPlayState::default();
+            self.pending_ball = None;
+            let kind = match game.set_play {
+                SetPlay::KickOff => RestartKind::KickOff,
+                SetPlay::ThrowIn | SetPlay::IndirectFreeKick => RestartKind::Indirect,
+                _ => RestartKind::Direct,
+            };
+            self.restart = game
+                .kicking_side
+                .map(|side| Restart::new(kind, game.set_play, side));
             // Set plays that start during Playing are placed immediately. Kick-offs and penalty
             // kicks are placed when entering Set.
             if features.contains(Features::PLACE_BALL) && game.state == State::Playing {
                 let [x, y, _] = world.ball;
-                // Balls are placed on the centers of lines (the dimensions of the field refer to
-                // the outer edges of lines).
-                let goal_line_x = field.length * 0.5 - field.line_width * 0.5;
-                let touchline_y = field.width * 0.5 - field.line_width * 0.5;
-                if let Some((x, y)) = match game.set_play {
+                let goal_line_x = field.goal_line_x();
+                let touchline_y = field.touchline_y();
+                // If the spot is blocked for too long, the ball is shifted along the line on which
+                // it is placed (or parallel to the touchline).
+                if let Some((x, y, along)) = match game.set_play {
                     SetPlay::GoalKick => Some((
-                        (field.length * 0.5 - field.goal_area_length + field.line_width * 0.5)
-                            .copysign(x),
+                        field.goal_area_line_x().copysign(x),
                         (field.goal_area_width * 0.5 - field.line_width * 0.5).copysign(y),
+                        [0.0, 1.0],
                     )),
-                    SetPlay::CornerKick => Some((goal_line_x.copysign(x), touchline_y.copysign(y))),
-                    SetPlay::ThrowIn => {
-                        Some((x.clamp(-goal_line_x, goal_line_x), touchline_y.copysign(y)))
+                    SetPlay::CornerKick => {
+                        Some((goal_line_x.copysign(x), touchline_y.copysign(y), [1.0, 0.0]))
                     }
+                    SetPlay::ThrowIn => Some((
+                        x.clamp(-goal_line_x, goal_line_x),
+                        touchline_y.copysign(y),
+                        [1.0, 0.0],
+                    )),
                     // Indirect free kicks inside the opponents' penalty area are taken from the
                     // nearest point on the penalty area line parallel to the goal line.
-                    SetPlay::IndirectFreeKick => Some(game.kicking_side.map_or((x, y), |side| {
-                        let sign = side_to_sign(side, game.sides);
-                        let penalty_area_line_x =
-                            field.length * 0.5 - field.penalty_area_length + field.line_width * 0.5;
-                        let half_width = field.penalty_area_width * 0.5 - field.line_width * 0.5;
-                        if sign * x > penalty_area_line_x && y.abs() <= half_width {
-                            (sign * penalty_area_line_x, y)
-                        } else {
-                            (x, y)
-                        }
-                    })),
-                    SetPlay::DirectFreeKick => Some((x, y)),
+                    SetPlay::IndirectFreeKick => {
+                        let (x, y) = game.kicking_side.map_or((x, y), |side| {
+                            let sign = side_to_sign(side, game.sides);
+                            let penalty_area_line_x = field.penalty_area_line_x();
+                            let half_width =
+                                field.penalty_area_width * 0.5 - field.line_width * 0.5;
+                            if sign * x > penalty_area_line_x && y.abs() <= half_width {
+                                (sign * penalty_area_line_x, y)
+                            } else {
+                                (x, y)
+                            }
+                        });
+                        Some((x, y, [0.0, 1.0]))
+                    }
+                    SetPlay::DirectFreeKick => Some((x, y, [1.0, 0.0])),
                     _ => None,
                 } {
-                    commands.push(Command::PlaceBall {
-                        position: [x, y, field.ball_radius],
-                    });
+                    self.request_ball(gc, [x, y, field.ball_radius], along, false);
                 }
             }
         }
@@ -688,38 +945,29 @@ impl Autoreferee {
 
         if game.state == State::Set && last.state != State::Set {
             if game.phase == Phase::PenaltyShootout {
-                self.restart = game.kicking_side.map(|side| Restart {
-                    kind: RestartKind::PenaltyShot,
-                    set_play: SetPlay::NoSetPlay,
-                    side,
-                    kicker: None,
-                    kick_position: [0.0; 2],
-                    other_touch: false,
-                    kicker_touched_outside_center_circle: false,
-                    kicker_touched_far_from_kick: false,
-                    ball_moved_since_kick: false,
-                });
+                self.restart = game
+                    .kicking_side
+                    .map(|side| Restart::new(RestartKind::PenaltyShot, SetPlay::NoSetPlay, side));
                 if let Some(kicking_side) = game.kicking_side {
                     if features.contains(Features::PLACE_BALL) {
                         let sign = side_to_sign(kicking_side, game.sides);
-                        commands.push(Command::PlaceBall {
-                            position: [
-                                sign * (field.length * 0.5 - field.penalty_mark_distance),
-                                0.0,
-                                field.ball_radius,
-                            ],
-                        });
+                        self.request_ball(
+                            gc,
+                            [sign * field.penalty_mark_x(), 0.0, field.ball_radius],
+                            [0.0, 1.0],
+                            false,
+                        );
                     }
                 }
             } else if matches!(game.set_play, SetPlay::KickOff | SetPlay::PenaltyKick) {
                 // A kick-off without a kicking side is a dropped ball, which is also taken from
                 // the center mark, but has no kicking player.
                 if let Some(kicking_side) = game.kicking_side {
-                    self.kicking_player = rules::determine_kicking_player(
+                    self.set_play.kicking_player = rules::determine_kicking_player(
                         game,
                         world,
-                        field,
-                        &compute_margins(game, world, field),
+                        &field,
+                        &compute_margins(game, world, &field),
                         kicking_side,
                     );
                     if game.set_play == SetPlay::PenaltyKick
@@ -731,20 +979,21 @@ impl Autoreferee {
                 if features.contains(Features::PLACE_BALL) {
                     let x = match (game.set_play, game.kicking_side) {
                         (SetPlay::PenaltyKick, Some(kicking_side)) => {
-                            side_to_sign(kicking_side, game.sides)
-                                * (field.length * 0.5 - field.penalty_mark_distance)
+                            side_to_sign(kicking_side, game.sides) * field.penalty_mark_x()
                         }
                         _ => 0.0,
                     };
-                    commands.push(Command::PlaceBall {
-                        position: [x, 0.0, field.ball_radius],
-                    });
+                    self.request_ball(gc, [x, 0.0, field.ball_radius], [0.0, 1.0], false);
                 }
             }
         }
 
         if game.state == State::Playing && last.state == State::Set {
             commands.push(Command::Whistle);
+        }
+
+        if walk_in && game.state != last.state {
+            self.request_walk_in(gc, world);
         }
 
         for (side, player) in all_players() {
@@ -770,6 +1019,16 @@ impl Autoreferee {
                 // Substitutes enter the game from the same place as penalized players. They
                 // inherit the penalty of the substituted player (or are picked up).
                 self.place_for_penalty(game, world, side, player, commands);
+            } else if game.phase != Phase::PenaltyShootout
+                && penalty == Penalty::PickedUp
+                && was_present.is_some_and(|present| !present[side][index(player)])
+                && world.players[side][index(player)].is_some()
+                && self.picked_up_by_autoreferee[side][index(player)]
+                && features.contains(Features::PLACE_FOR_PENALTY)
+            {
+                // A picked-up player that appears enters the game from the same place as a
+                // penalized one (when it was picked up, it couldn't be placed).
+                self.place_for_penalty(game, world, side, player, commands);
             }
         }
     }
@@ -778,7 +1037,7 @@ impl Autoreferee {
     /// next to the touchline. Positions are tried with increasing distance from the height of the
     /// own penalty mark, but only in the own half and in front of the own goal line.
     fn place_for_penalty(
-        &self,
+        &mut self,
         game: &Game,
         world: &World,
         side: Side,
@@ -794,10 +1053,15 @@ impl Autoreferee {
         let y = (field.width * 0.5 + field.border_strip_width - pose.radius).copysign(pose.y);
         let theta = if y > 0.0 { -PI * 0.5 } else { PI * 0.5 };
 
-        // Other players (and players that have just been placed) occupy their spots.
+        // Other players (and players that have just been placed) occupy their spots. Penalized
+        // players occupy the spot where they were placed, since they are put back there if they
+        // drift away.
         let occupied: Vec<(f32, f32)> = all_players()
             .filter(|&other| other != (side, player))
-            .filter_map(|(s, p)| world.players[s][index(p)].map(|pose| (pose.x, pose.y)))
+            .filter_map(|(s, p)| {
+                let pose = world.players[s][index(p)]?;
+                Some(self.penalty_pose[s][index(p)].map_or((pose.x, pose.y), |[x, y, _]| (x, y)))
+            })
             .chain(commands.iter().filter_map(|command| match command {
                 Command::PlacePlayer { x, y, .. } => Some((*x, *y)),
                 _ => None,
@@ -811,7 +1075,7 @@ impl Autoreferee {
         };
 
         let candidates = rules::penalty_placement_candidates(
-            -(field.length * 0.5 - field.penalty_mark_distance),
+            -field.penalty_mark_x(),
             -field.length * 0.5 + pose.radius,
             -pose.radius,
             distance,
@@ -828,6 +1092,7 @@ impl Autoreferee {
                     .max_by(|a, b| clearance(*a).total_cmp(&clearance(*b)))
             })
             .unwrap_or(candidates[0]);
+        self.penalty_pose[side][index(player)] = Some([sign * team_x, y, theta]);
         commands.push(Command::PlacePlayer {
             side,
             player,
@@ -835,6 +1100,36 @@ impl Autoreferee {
             y,
             theta,
         });
+    }
+
+    /// This function places penalized players again that have drifted too far from the place
+    /// where they were put for their penalty (e.g. because they had momentum or fell over), as a
+    /// robot handler would not let them walk away.
+    fn replace_drifted_players(&self, world: &World, commands: &mut Vec<Command>) {
+        // Places are at least this far apart, so players that drift less don't get in the way.
+        let tolerance = self.config.penalty_placement_distance * 0.5;
+        for (side, player) in all_players() {
+            let (Some([x, y, theta]), Some(pose)) = (
+                self.penalty_pose[side][index(player)],
+                world.players[side][index(player)],
+            ) else {
+                continue;
+            };
+            // Players that have just been placed have not arrived in the world yet.
+            let just_placed = commands.iter().any(|command| {
+                matches!(command, Command::PlacePlayer { side: s, player: p, .. }
+                    if *s == side && *p == player)
+            });
+            if !just_placed && (pose.x - x).hypot(pose.y - y) > tolerance {
+                commands.push(Command::PlacePlayer {
+                    side,
+                    player,
+                    x,
+                    y,
+                    theta,
+                });
+            }
+        }
     }
 
     /// This function places a player that has just been selected for a penalty shot, i.e. the
@@ -854,9 +1149,9 @@ impl Autoreferee {
         let field = &self.config.field;
         let sign = side_to_sign(side, game.sides);
         let team_x = if side == kicking_side {
-            field.length * 0.5 - field.penalty_area_length + field.line_width * 0.5
+            field.penalty_area_line_x()
         } else {
-            -(field.length * 0.5 - field.line_width * 0.5)
+            -field.goal_line_x()
         };
         commands.push(Command::PlacePlayer {
             side,
@@ -895,16 +1190,21 @@ impl Autoreferee {
         commands.push(Command::PlacePlayer {
             side,
             player: goalkeeper,
-            x: sign * -(field.length * 0.5 - field.line_width * 0.5),
+            x: sign * -field.goal_line_x(),
             y: pose.y.clamp(-max_y, max_y),
             theta: pose.theta,
         });
     }
 
-    /// This function tracks the movement of the ball and the progress of the current restart.
-    fn track_ball(&mut self, world: &World) {
+    /// This function tracks the movement of the ball and the progress of the current restart. It
+    /// also remembers where the ball was when the avoidance region of the current set play became
+    /// active, which is where it is put back if a defender plays it before the kicker does.
+    fn track_ball(&mut self, gc: &GameController, world: &World) {
         let now = self.clock;
         self.ball = world.ball;
+        if rules::is_avoidance_region_active(gc.get_game(false)) {
+            self.set_play.ball_position.get_or_insert(world.ball);
+        }
         let [x, y, z] = world.ball;
         if !self.ball_reference.is_some_and(|[rx, ry, rz]| {
             (x - rx).hypot(y - ry).hypot(z - rz) <= Self::BALL_MOVEMENT_DISTANCE
@@ -912,10 +1212,11 @@ impl Autoreferee {
             self.ball_reference = Some(world.ball);
             self.time_when_ball_moved = now;
         }
+        let clearly_moved = self.config.field.ball_radius;
         if let Some(restart) = self.restart.as_mut() {
             if restart.kicker.is_some()
                 && (x - restart.kick_position[0]).hypot(y - restart.kick_position[1])
-                    > Self::BALL_CLEARLY_MOVED_DISTANCE
+                    > clearly_moved
             {
                 restart.ball_moved_since_kick = true;
             }
@@ -928,28 +1229,85 @@ impl Autoreferee {
         now >= self.time_when_ball_moved.max(since) + Self::BALL_REST_DURATION
     }
 
-    /// This function keeps track of which players of the defending team have been outside the
-    /// avoidance region since the current set play began.
-    fn update_avoidance(&mut self, gc: &GameController, world: &World) {
+    /// This function returns whether there is no requested placement of the ball that hasn't been
+    /// observed yet.
+    fn ball_is_in_place(&self) -> bool {
+        self.pending_ball
+            .as_ref()
+            .is_none_or(|pending| pending.arrived)
+    }
+
+    /// This function requests that the ball is placed at a given position (replacing any previous
+    /// request). The placement is commanded by [Self::place_ball].
+    fn request_ball(
+        &mut self,
+        gc: &GameController,
+        position: [f32; 3],
+        along: [f32; 2],
+        put_back: bool,
+    ) {
+        self.pending_ball = Some(PendingBall {
+            position,
+            along,
+            requested_at: gc.get_time(),
+            commanded_at: None,
+            put_back,
+            arrived: false,
+        });
+    }
+
+    /// This function commands the requested placement of the ball once its spot is free (or, if
+    /// it is blocked for too long, a spot next to it), repeats it if it has not been observed
+    /// after some time, and forgets it once the ball is there.
+    fn place_ball(&mut self, gc: &GameController, world: &World, commands: &mut Vec<Command>) {
+        let now = gc.get_time();
+        let field = self.config.field;
+        let Some(pending) = self.pending_ball.as_mut() else {
+            return;
+        };
+        let [x, y, _] = world.ball;
+        let [px, py, pz] = pending.position;
         let game = gc.get_game(false);
-        // While the region is not in effect (e.g. while play is stopped to place the ball), players
-        // can't leave it.
-        if !rules::is_avoidance_region_active(game) {
+        pending.arrived =
+            pending.commanded_at.is_some() && (x - px).hypot(y - py) <= field.ball_radius;
+        // A placement that is done is held as long as the ball must not be played, i.e. while
+        // play is stopped (or in Set).
+        let live = game.state == State::Playing && !game.stopped;
+        if !self.config.features.contains(Features::PLACE_BALL)
+            || (pending.arrived && live)
+            || (pending.put_back && !rules::is_avoidance_region_active(game))
+        {
+            self.pending_ball = None;
             return;
         }
-        let margins = compute_margins(game, world, &self.config.field);
-        for (side, player) in all_players() {
-            if !rules::is_in_avoidance_region(
-                game,
-                world,
-                &self.config.field,
-                &margins,
-                side,
-                player,
-            ) {
-                self.left_avoidance[side][index(player)] = true;
-            }
+        if pending.arrived {
+            return;
         }
+        if !rules::is_spot_free(world, &field, [px, py]) {
+            if now < pending.requested_at + Self::BALL_PLACEMENT_PATIENCE {
+                return;
+            }
+            let Some([px, py]) = rules::free_spot_along(
+                world,
+                &field,
+                [px, py],
+                pending.along,
+                Self::BALL_PLACEMENT_MAX_SHIFT,
+            ) else {
+                return;
+            };
+            pending.position = [px, py, pz];
+        }
+        if pending
+            .commanded_at
+            .is_some_and(|at| now < at + Self::PLACEMENT_RETRY_TIME)
+        {
+            return;
+        }
+        pending.commanded_at = Some(now);
+        commands.push(Command::PlaceBall {
+            position: pending.position,
+        });
     }
 
     /// This function awards a goal to the attacking team if the goalkeeper leaves the goal line
@@ -1060,6 +1418,7 @@ impl Autoreferee {
         {
             self.time_when_player_near_ball = now;
             self.stuck_reference = None;
+            self.near_ball_since = EnumMap::default();
             return;
         }
         let [ball_x, ball_y, _] = world.ball;
@@ -1075,6 +1434,18 @@ impl Autoreferee {
                 })
             })
             .collect();
+
+        // Players can only be penalized for local game stuck if they have been close to the ball
+        // all that time.
+        let mut near_ball_since: EnumMap<Side, [Option<Duration>; NUM_PLAYERS]> =
+            EnumMap::default();
+        for &((side, player), distance) in &distances {
+            if distance <= Self::LOCAL_GAME_STUCK_PROXIMITY {
+                near_ball_since[side][index(player)] =
+                    Some(self.near_ball_since[side][index(player)].unwrap_or(now));
+            }
+        }
+        self.near_ball_since = near_ball_since;
 
         if distances
             .iter()
@@ -1100,7 +1471,11 @@ impl Autoreferee {
         if now >= since + Self::LOCAL_GAME_STUCK_DURATION {
             if let Some(((side, player), _)) = distances
                 .iter()
-                .filter(|(_, distance)| *distance <= Self::LOCAL_GAME_STUCK_PROXIMITY)
+                .filter(|((side, player), distance)| {
+                    *distance <= Self::LOCAL_GAME_STUCK_PROXIMITY
+                        && self.near_ball_since[*side][index(*player)]
+                            .is_some_and(|near| now >= near + Self::LOCAL_GAME_STUCK_DURATION)
+                })
                 .min_by(|(_, distance1), (_, distance2)| distance1.total_cmp(distance2))
             {
                 apply(
@@ -1144,12 +1519,20 @@ impl Autoreferee {
                 let distance = pose.radius + field.ball_radius + Self::CLEAR_BALL_DISTANCE;
                 let max_x = field.length * 0.5 - field.ball_radius;
                 let max_y = field.width * 0.5 - field.ball_radius;
+                // The ball is put in front of the player, unless another player is there. Then
+                // it is tried behind, left and right of it.
+                let spots = [0.0, PI, PI * 0.5, -PI * 0.5].map(|angle| {
+                    [
+                        (pose.x + distance * (pose.theta + angle).cos()).clamp(-max_x, max_x),
+                        (pose.y + distance * (pose.theta + angle).sin()).clamp(-max_y, max_y),
+                    ]
+                });
+                let [x, y] = spots
+                    .into_iter()
+                    .find(|&spot| rules::is_spot_free(world, field, spot))
+                    .unwrap_or(spots[0]);
                 commands.push(Command::PlaceBall {
-                    position: [
-                        (pose.x + distance * pose.theta.cos()).clamp(-max_x, max_x),
-                        (pose.y + distance * pose.theta.sin()).clamp(-max_y, max_y),
-                        field.ball_radius,
-                    ],
+                    position: [x, y, field.ball_radius],
                 });
                 break;
             }
@@ -1157,10 +1540,12 @@ impl Autoreferee {
     }
 
     /// This function detects whether any player has moved. This is only relevant in Ready.
-    fn detect_movement(&mut self, world: &World) {
+    fn detect_movement(&mut self, gc: &GameController, world: &World) {
         let now = self.clock;
+        let gc_now = gc.get_time();
         for (side, player) in all_players() {
             let last = &mut self.last_poses[side][index(player)];
+            let moved_at = &mut self.player_moved_at[side][index(player)];
             match (world.players[side][index(player)], *last) {
                 (Some(pose), Some(last_pose)) => {
                     if (pose.x - last_pose.x).hypot(pose.y - last_pose.y) > Self::MOVEMENT_DISTANCE
@@ -1168,10 +1553,14 @@ impl Autoreferee {
                             > Self::MOVEMENT_ANGLE
                     {
                         *last = Some(pose);
+                        *moved_at = Some(gc_now);
                         self.time_when_player_moved = Some(now);
                     }
                 }
-                (pose, _) => *last = pose,
+                (pose, _) => {
+                    *last = pose;
+                    *moved_at = pose.map(|_| gc_now);
+                }
             }
         }
     }
@@ -1284,32 +1673,42 @@ impl Autoreferee {
         {
             return true;
         }
+        // Once the ball has clearly moved and the referee is about to call it free, nobody is
+        // penalized for the position any more (the players have reacted to the moving ball).
+        if self.set_play.ball_free_at.is_some() {
+            return false;
+        }
         let result =
             rules::is_illegally_positioned(game, world, &self.config.field, margins, side, player);
         match result {
             rules::Positioning::Legal => false,
             rules::Positioning::Illegal => true,
-            // Players that were in the avoidance region when the set play began get some time to
-            // leave it. Players that enter it (again) are penalized immediately.
-            rules::Positioning::InAvoidanceRegion => {
+            // The deeper a player is inside, the earlier it is penalized: After a short time in
+            // which nothing happens, the allowed depth (relative to the maximum depth of the
+            // respective part of the region) decreases linearly to 0.
+            rules::Positioning::InAvoidanceRegion(depth) => {
                 let elapsed = SignedDuration::try_from(
                     gc.params.competition.set_plays[game.set_play].duration,
                 )
                 .unwrap_or(SignedDuration::ZERO)
                     - game.secondary_timer.get_remaining();
-                self.left_avoidance[side][index(player)]
-                    || (matches!(game.secondary_timer, Timer::Started { .. })
-                        && elapsed >= Self::AVOIDANCE_GRACE_PERIOD)
+                let progress = (elapsed - Self::AVOIDANCE_REACTION_TIME)
+                    .as_seconds_f32()
+                    .max(0.0)
+                    / (Self::AVOIDANCE_GRACE_PERIOD - Self::AVOIDANCE_REACTION_TIME)
+                        .as_seconds_f32();
+                matches!(game.secondary_timer, Timer::Started { .. }) && depth > 1.0 - progress
             }
             // If there hasn't been a designated kicker for this set play yet, the first one that
             // tries to enter the respective area is chosen. This assumes that players can't
             // teleport into that area, so if multiple players enter at the same time, it doesn't
             // matter which one is chosen.
             rules::Positioning::IllegalUnlessKicker => {
-                if self.kicking_player.is_none() && game.state == State::Playing {
-                    self.kicking_player = Some(player);
+                let kicking_player = &mut self.set_play.kicking_player;
+                if kicking_player.is_none() && game.state == State::Playing {
+                    *kicking_player = Some(player);
                 }
-                self.kicking_player != Some(player)
+                *kicking_player != Some(player)
             }
         }
     }
@@ -1340,6 +1739,7 @@ impl Autoreferee {
         if game.phase != Phase::PenaltyShootout
             && game.state == State::Set
             && now > self.time_when_state_began + self.config.time_until_switch_to_playing
+            && self.ball_is_in_place()
         {
             apply(gc, VAction::FreeSetPlay(FreeSetPlay));
         }
@@ -1347,11 +1747,13 @@ impl Autoreferee {
 
     /// This function checks whether the ball went out of bounds and applies the respective
     /// action.
+    ///
+    /// A ball that has been called out of bounds must have been back inside the field before it can
+    /// be called again. Otherwise, a ball that hasn't been placed yet (e.g. because a player is in
+    /// the way, or because it is placed by a human) would be called again whenever another player
+    /// touches it.
     fn check_ball_out(&mut self, gc: &mut GameController, world: &World) {
         let game = gc.get_game(false);
-        if game.state != State::Playing || game.stopped {
-            return;
-        }
         let field = &self.config.field;
         let [x, y, z] = world.ball;
         let beyond_goal_line = x.abs() > field.length * 0.5 + field.ball_radius;
@@ -1359,6 +1761,19 @@ impl Autoreferee {
         // The whole ball must be between the goal posts and under the crossbar.
         let in_goal = y.abs() + field.ball_radius < field.goal_width * 0.5
             && z + field.ball_radius < field.goal_height;
+        if !beyond_goal_line && !beyond_touchline {
+            self.ball_in_play = true;
+        }
+        if game.state != State::Playing || game.stopped {
+            return;
+        }
+        if beyond_goal_line || beyond_touchline {
+            if !self.ball_in_play {
+                return;
+            }
+            // Whatever the call is, the ball is out of play now.
+            self.ball_in_play = false;
+        }
 
         if game.phase == Phase::PenaltyShootout {
             let Some(kicking_side) = game.kicking_side else {
@@ -1417,8 +1832,8 @@ impl Autoreferee {
         } else {
             return;
         };
-        // The ball is placed by the command that results from observing the new set play, so play
-        // can be resumed right away.
+        // The ball is placed by the command that results from observing the new set play, so
+        // play only has to be resumed.
         if apply(
             gc,
             VAction::StartSetPlay(StartSetPlay {
@@ -1426,7 +1841,7 @@ impl Autoreferee {
                 set_play,
             }),
         ) {
-            apply(gc, VAction::StopPlay(StopPlay { resume: true }));
+            self.resume_play(gc);
         }
     }
 
@@ -1484,26 +1899,171 @@ impl Autoreferee {
         }
     }
 
+    /// This function requests that all players that are present and not penalized are placed at
+    /// their poses for the walk-in. The placements are commanded by [Self::place_for_walk_in].
+    fn request_walk_in(&mut self, gc: &GameController, world: &World) {
+        let game = gc.get_game(false);
+        self.walk_in_requested = true;
+        for (side, player) in all_players() {
+            self.walk_in_pending[side][index(player)] = (game.teams[side][player].penalty
+                == Penalty::NoPenalty
+                && world.players[side][index(player)].is_some())
+            .then(|| gc.get_time());
+        }
+    }
+
+    /// This function commands the requested walk-in placements of players once they have come to
+    /// rest (they might still walk when the state changes), unless the state has changed again or
+    /// the player is not available anymore.
+    fn place_for_walk_in(
+        &mut self,
+        gc: &GameController,
+        world: &World,
+        commands: &mut Vec<Command>,
+    ) {
+        let now = gc.get_time();
+        let game = gc.get_game(false);
+        let still_wanted = self.config.features.contains(Features::PLACE_FOR_WALK_IN)
+            && game.phase != Phase::PenaltyShootout
+            && matches!(game.state, State::Initial | State::Timeout);
+        for (side, player) in all_players() {
+            let pending = &mut self.walk_in_pending[side][index(player)];
+            let Some(requested_at) = *pending else {
+                continue;
+            };
+            if !still_wanted
+                || game.teams[side][player].penalty != Penalty::NoPenalty
+                || world.players[side][index(player)].is_none()
+            {
+                *pending = None;
+            } else if now >= requested_at + Self::WALK_IN_MAX_WAIT
+                || self.player_moved_at[side][index(player)]
+                    .is_some_and(|moved| now >= moved + Self::WALK_IN_SETTLE_TIME)
+            {
+                *pending = None;
+                commands.push(Command::PlaceForWalkIn { side, player });
+            }
+        }
+        if self.walk_in_requested && !still_wanted {
+            // The state changed before the walk-in was complete, so nobody waits for it.
+            self.walk_in_requested = false;
+        } else if self.walk_in_requested
+            && self.walk_in_pending.values().flatten().all(Option::is_none)
+        {
+            self.walk_in_requested = false;
+            commands.push(Command::WalkInComplete);
+        }
+    }
+
+    /// This function resumes play after a restart, after the configured time and once the ball is
+    /// in place (which is checked by [Self::apply_delayed_actions]).
+    fn resume_play(&mut self, gc: &GameController) {
+        self.resume_at = Some(gc.get_time() + self.config.time_until_resume);
+    }
+
+    /// This function finishes the current set play (after the configured time) once the ball has
+    /// clearly moved after the kicking team touched it. It returns whether it finished it.
+    fn schedule_ball_free(&mut self, gc: &mut GameController) -> bool {
+        let game = gc.get_game(false);
+        let now = self.clock;
+        if !self.config.features.contains(Features::BALL_FREE)
+            || self.set_play.ball_free_at.is_some()
+            || game.phase == Phase::PenaltyShootout
+            || game.state != State::Playing
+            || game.set_play == SetPlay::NoSetPlay
+            || now < self.time_when_state_began + Self::BALL_FREE_GRACE_PERIOD
+            || now < self.time_when_set_play_began + Self::BALL_FREE_GRACE_PERIOD
+            || !self.restart.as_ref().is_some_and(|restart| {
+                restart.set_play == game.set_play
+                    && game.kicking_side == Some(restart.side)
+                    && restart.kicker.is_some()
+                    && restart.ball_moved_since_kick
+            })
+        {
+            return false;
+        }
+        if self.config.time_until_ball_free.is_zero() {
+            apply(gc, VAction::FinishSetPlay(FinishSetPlay))
+        } else {
+            self.set_play.ball_free_at = Some(now + self.config.time_until_ball_free);
+            false
+        }
+    }
+
+    /// This function applies the actions whose time has come (resuming play and finishing a set
+    /// play after the ball has clearly moved). It returns whether it applied one.
+    fn apply_delayed_actions(&mut self, gc: &mut GameController) -> bool {
+        let mut applied = false;
+        if let Some(at) = self.resume_at {
+            if !gc.get_game(false).stopped {
+                self.resume_at = None;
+            } else if gc.get_time() >= at && self.ball_is_in_place() {
+                self.resume_at = None;
+                applied |= apply(gc, VAction::StopPlay(StopPlay { resume: true }));
+            }
+        }
+        if let Some(at) = self.set_play.ball_free_at {
+            if self.clock >= at {
+                self.set_play.ball_free_at = None;
+                let game = gc.get_game(false);
+                if self.config.features.contains(Features::BALL_FREE)
+                    && game.phase != Phase::PenaltyShootout
+                    && game.state == State::Playing
+                    && game.set_play != SetPlay::NoSetPlay
+                {
+                    applied |= apply(gc, VAction::FinishSetPlay(FinishSetPlay));
+                }
+            }
+        }
+        applied
+    }
+
+    /// This function picks up players that are not present.
+    fn pick_up_absent_players(&mut self, gc: &mut GameController, world: &World) {
+        for (side, player) in all_players() {
+            if world.players[side][index(player)].is_none()
+                && gc.get_game(false).teams[side][player].penalty == Penalty::NoPenalty
+            {
+                self.picked_up_by_autoreferee[side][index(player)] = apply(
+                    gc,
+                    VAction::Penalize(Penalize {
+                        side,
+                        player,
+                        call: PenaltyCall::RequestForPickUp,
+                    }),
+                );
+            }
+        }
+    }
+
     /// This function starts the penalty timers of penalized players and unpenalizes them when the
     /// timers have elapsed. Both is done by the same action ([Unpenalize]), which corresponds to
     /// clicking the player in the user interface.
-    fn unpenalize_players(&mut self, gc: &mut GameController) {
+    fn unpenalize_players(&mut self, gc: &mut GameController, world: &World) {
+        let features = self.config.features;
         for (side, player) in all_players() {
             let p = &gc.get_game(false).teams[side][player];
+            // Picked-up players return if they are present, unless the user picked them up.
+            let picked_up_and_present = p.penalty == Penalty::PickedUp
+                && features.contains(Features::PICK_UP_ABSENT_PLAYERS)
+                && self.picked_up_by_autoreferee[side][index(player)]
+                && world.players[side][index(player)].is_some();
             // Applying the action while the timer is running would reset the timer.
             let timer_stopped_or_elapsed = match p.penalty_timer {
                 Timer::Stopped => true,
                 Timer::Started { .. } => p.penalty_timer.get_remaining().is_zero(),
             };
             if timer_stopped_or_elapsed
-                && !matches!(
-                    p.penalty,
-                    Penalty::NoPenalty
-                        | Penalty::MotionInSet
-                        | Penalty::PickedUp
-                        | Penalty::Substitute
-                        | Penalty::SentOff
-                )
+                && (picked_up_and_present
+                    || (features.contains(Features::UNPENALIZE)
+                        && !matches!(
+                            p.penalty,
+                            Penalty::NoPenalty
+                                | Penalty::MotionInSet
+                                | Penalty::PickedUp
+                                | Penalty::Substitute
+                                | Penalty::SentOff
+                        )))
             {
                 apply(
                     gc,

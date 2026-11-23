@@ -96,8 +96,7 @@ pub fn determine_kicking_player(
                         .then_some((player, distance))
                 }
                 SetPlay::PenaltyKick => {
-                    let distance =
-                        (team_x - (field.length * 0.5 - field.penalty_mark_distance)).hypot(pose.y);
+                    let distance = (team_x - field.penalty_mark_x()).hypot(pose.y);
                     ((margins.opponent_penalty_area > 0.0
                         || distance < field.center_circle_radius + pose.radius)
                         && distance >= field.mark_radius + pose.radius)
@@ -154,6 +153,45 @@ pub fn carpet_excess(pose: &PlayerPose, field: &FieldDimensions) -> f32 {
         .max(pose.y.abs() - (field.width * 0.5 + field.border_strip_width))
 }
 
+/// This function checks whether the ball can be placed at a spot, i.e. no player is there.
+pub fn is_spot_free(world: &World, field: &FieldDimensions, [x, y]: [f32; 2]) -> bool {
+    !world
+        .players
+        .values()
+        .flatten()
+        .flatten()
+        .any(|pose| (pose.x - x).hypot(pose.y - y) < pose.radius + field.ball_radius)
+}
+
+/// This function returns the free spot closest to a blocked one along a direction (trying both
+/// ways), but at most `max_shift` away from it and inside the field.
+pub fn free_spot_along(
+    world: &World,
+    field: &FieldDimensions,
+    [x, y]: [f32; 2],
+    [dx, dy]: [f32; 2],
+    max_shift: f32,
+) -> Option<[f32; 2]> {
+    let step = field.ball_radius;
+    // This would never end otherwise.
+    if step.is_nan() || step <= 0.0 {
+        return None;
+    }
+    let max_x = field.goal_line_x();
+    let max_y = field.touchline_y();
+    (1..)
+        .map(|k| k as f32 * step)
+        .take_while(|&shift| shift <= max_shift)
+        .flat_map(|shift| [shift, -shift])
+        .map(|shift| {
+            [
+                (x + shift * dx).clamp(-max_x, max_x),
+                (y + shift * dy).clamp(-max_y, max_y),
+            ]
+        })
+        .find(|&spot| is_spot_free(world, field, spot))
+}
+
 /// This function checks a very crude approximation of leaving the field, i.e. whether an
 /// unpenalized player is outside the carpeted area by more than `allowance`.
 pub fn is_leaving_the_field(
@@ -173,8 +211,7 @@ pub fn is_leaving_the_field(
 
 /// This function checks whether a player is on its own goal line between the goal posts.
 pub fn is_on_own_goal_line(team_x: f32, pose: &PlayerPose, field: &FieldDimensions) -> bool {
-    pose.y.abs() <= field.goal_width * 0.5
-        && (team_x + (field.length * 0.5 - field.line_width * 0.5)).abs() <= pose.radius
+    pose.y.abs() <= field.goal_width * 0.5 && (team_x + field.goal_line_x()).abs() <= pose.radius
 }
 
 /// This function returns the number of players of a team that are on the field, i.e. that are
@@ -209,30 +246,36 @@ pub fn is_avoidance_region_active(game: &Game) -> bool {
 }
 
 /// This function checks whether a player of the defending team is within the avoidance region of
-/// a free kick. Players on their own goal line between the goal posts are exempt.
-pub fn is_in_avoidance_region(
+/// a free kick and returns how deep it is inside. Players on their own goal line between the goal
+/// posts are exempt.
+///
+/// The depth is the length of the shortest way out of the region (which is what the player has to
+/// walk), relative to the maximum depth of the respective part of the region (the circle around
+/// the ball or a penalty area), so it is at most about 1. If the player is inside multiple parts,
+/// the largest value is returned.
+pub fn avoidance_depth(
     game: &Game,
     world: &World,
     field: &FieldDimensions,
     margins: &EnumMap<Side, [Option<Margins>; NUM_PLAYERS]>,
     side: Side,
     player: PlayerNumber,
-) -> bool {
+) -> Option<f32> {
     if !is_avoidance_region_active(game)
         || game.kicking_side != Some(-side)
         || game.teams[side][player].penalty != Penalty::NoPenalty
     {
-        return false;
+        return None;
     }
     let (Some(pose), Some(m)) = (
         world.players[side][index(player)],
         margins[side][index(player)],
     ) else {
-        return false;
+        return None;
     };
     let sign = side_to_sign(side, game.sides);
     if is_on_own_goal_line(sign * pose.x, &pose, field) {
-        return false;
+        return None;
     }
     let [ball_x, ball_y, _] = world.ball;
     // The avoidance region of a goal kick is the kicking team's penalty area. For free kicks
@@ -240,9 +283,37 @@ pub fn is_in_avoidance_region(
     let ball_team_x = sign * ball_x;
     let ball_in_own_penalty_area = ball_team_x <= -field.length * 0.5 + field.penalty_area_length
         && ball_y.abs() <= field.penalty_area_width * 0.5;
-    (pose.x - ball_x).hypot(pose.y - ball_y) < field.center_circle_radius + pose.radius
-        || (game.set_play == SetPlay::GoalKick && m.opponent_penalty_area > 0.0)
-        || (ball_in_own_penalty_area && m.own_penalty_area > 0.0)
+    // The deepest a robot can be inside a penalty area is on the goal line, where the closest way
+    // out is the front or one of the sides.
+    let penalty_area_depth = field
+        .penalty_area_length
+        .min(field.penalty_area_width * 0.5)
+        + pose.radius;
+    let circle =
+        field.center_circle_radius + pose.radius - (pose.x - ball_x).hypot(pose.y - ball_y);
+    [
+        (circle, field.center_circle_radius),
+        (
+            if game.set_play == SetPlay::GoalKick {
+                m.opponent_penalty_area
+            } else {
+                0.0
+            },
+            penalty_area_depth,
+        ),
+        (
+            if ball_in_own_penalty_area {
+                m.own_penalty_area
+            } else {
+                0.0
+            },
+            penalty_area_depth,
+        ),
+    ]
+    .into_iter()
+    .filter(|&(depth, _)| depth > 0.0)
+    .map(|(depth, maximum)| depth / maximum)
+    .reduce(f32::max)
 }
 
 /// This function returns the players of a team that exceed the limit of three players in the own
@@ -291,9 +362,9 @@ pub enum Positioning {
     Illegal,
     /// The player is positioned illegally unless it is the designated kicker.
     IllegalUnlessKicker,
-    /// The player is in the avoidance region of a free kick. Whether this is illegal depends on
-    /// whether it has had time to leave.
-    InAvoidanceRegion,
+    /// The player is in the avoidance region of a free kick, with the given relative depth (see
+    /// [avoidance_depth]). Whether this is illegal depends on how much time it has had to leave.
+    InAvoidanceRegion(f32),
 }
 
 /// This function checks if a player is illegally positioned with respect to the rules of the
@@ -347,7 +418,7 @@ pub fn is_illegally_positioned(
         }
         SetPlay::PenaltyKick => {
             if is_kicking_team {
-                let mark_x = field.length * 0.5 - field.penalty_mark_distance;
+                let mark_x = field.penalty_mark_x();
                 let distance_to_mark = (team_x - mark_x).hypot(pose.y);
                 // No player may stand on the mark in Set or be beyond it.
                 if (game.state == State::Set && distance_to_mark < field.mark_radius + r)
@@ -366,7 +437,7 @@ pub fn is_illegally_positioned(
                 // Playing results in a goal instead of a penalty.
                 Legal
             } else {
-                let own_mark_x = -(field.length * 0.5 - field.penalty_mark_distance);
+                let own_mark_x = -field.penalty_mark_x();
                 let distance_to_own_mark = (team_x - own_mark_x).hypot(pose.y);
                 if m.own_penalty_area > 0.0
                     || team_x < own_mark_x
@@ -382,13 +453,8 @@ pub fn is_illegally_positioned(
         | SetPlay::DirectFreeKick
         | SetPlay::IndirectFreeKick
         | SetPlay::ThrowIn
-        | SetPlay::CornerKick => {
-            if is_in_avoidance_region(game, world, field, margins, side, player) {
-                InAvoidanceRegion
-            } else {
-                Legal
-            }
-        }
+        | SetPlay::CornerKick => avoidance_depth(game, world, field, margins, side, player)
+            .map_or(Legal, InAvoidanceRegion),
         SetPlay::NoSetPlay => Legal,
     }
 }

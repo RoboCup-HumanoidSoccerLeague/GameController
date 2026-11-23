@@ -30,6 +30,8 @@ stage_app_linux() {
   install_built game_controller_app "${app_dir}/bin/GameController"
   cp -r "${basedir}/config" "${app_dir}/share/GameController"
   cp "${basedir}/LICENSE" "${basedir}/README.md" "${app_dir}/share/doc/GameController"
+  write_third_party_licenses game_controller_app "${app_dir}/share/doc/GameController/THIRD-PARTY-LICENSES"
+  append_font_license "${app_dir}/share/doc/GameController/THIRD-PARTY-LICENSES"
   cp "${basedir}/game_controller_app/icons/icon.png" \
     "${app_dir}/share/icons/hicolor/512x512/apps/${app_id}.png"
   # The Exec line is filled in by the install script. The app sets its window class / app ID to
@@ -71,6 +73,8 @@ stage_app_macos() {
   mkdir -p "${appdir}/Contents/MacOS" "${appdir}/Contents/Resources"
   install_built game_controller_app "${appdir}/Contents/MacOS/GameController"
   cp -r "${basedir}/config" "${basedir}/LICENSE" "${basedir}/README.md" "${appdir}/Contents/Resources"
+  write_third_party_licenses game_controller_app "${appdir}/Contents/Resources/THIRD-PARTY-LICENSES"
+  append_font_license "${appdir}/Contents/Resources/THIRD-PARTY-LICENSES"
   cp "${distdir}/macos/allow-firewall" "${appdir}/Contents/Resources"
   cp "${basedir}/game_controller_app/icons/icon.icns" "${appdir}/Contents/Resources/GameController.icns"
 

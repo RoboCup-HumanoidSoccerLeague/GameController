@@ -1,0 +1,22 @@
+This distribution contains software from the following third-party projects. The license of the
+GameController itself is in the file LICENSE.
+
+================================================================================
+Licenses
+================================================================================
+{{#each overview}}
+  {{name}} ({{count}} crates)
+{{/each}}
+{{#each licenses}}
+
+--------------------------------------------------------------------------------
+{{name}}
+--------------------------------------------------------------------------------
+
+Used by:
+{{#each used_by}}
+  {{crate.name}} {{crate.version}}{{#if crate.repository}} ({{crate.repository}}){{/if}}
+{{/each}}
+
+{{{text}}}
+{{/each}}

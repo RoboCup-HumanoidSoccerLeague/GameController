@@ -20,7 +20,7 @@ if (Test-Path $Directory) {
     Remove-Item -Recurse -Force $Directory
 }
 New-Item -ItemType Directory -Path $Directory | Out-Null
-foreach ($Item in "GameController.exe", "config", "LICENSE", "README.md", "version.txt", "uninstall.ps1") {
+foreach ($Item in "GameController.exe", "config", "LICENSE", "THIRD-PARTY-LICENSES", "README.md", "version.txt", "uninstall.ps1") {
     Copy-Item (Join-Path $Source $Item) $Directory -Recurse
 }
 

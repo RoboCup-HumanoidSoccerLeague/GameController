@@ -10,6 +10,7 @@ stage_api() {
   rm -rf "${api_dir}"
   mkdir -p "${api_dir}/include" "${api_dir}/lib" "${api_dir}/config"
   cp "${basedir}/LICENSE" "${api_dir}"
+  write_third_party_licenses game_controller_api "${api_dir}/THIRD-PARTY-LICENSES"
   cp "${basedir}/game_controller_api/headers/GameController.h" "${api_dir}/include"
   cp "${basedir}/game_controller_msgs/headers/RoboCupGameControlData.h" "${api_dir}/include"
   install_built "${library}" "${api_dir}/lib/${library}"

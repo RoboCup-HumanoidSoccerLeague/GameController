@@ -25,6 +25,15 @@ jobs:
       - if: ${{ github.ref_type == 'tag' }}
         shell: bash
         run: dist/check-version "${GITHUB_REF_NAME}"
+      # The notices of the dependencies are generated with cargo-about (see about.toml). Compiling it
+      # takes a while, so the binary is cached.
+      - uses: actions/cache@v4
+        id: cargo-about
+        with:
+          path: ~/.cargo/bin/cargo-about*
+          key: cargo-about-0.9.3-${{ matrix.os }}
+      - if: ${{ steps.cargo-about.outputs.cache-hit != 'true' }}
+        run: cargo install --locked --version 0.9.3 cargo-about --features cli
       - if: ${{ startsWith(matrix.os, 'macos') }}
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}

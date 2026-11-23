@@ -1,0 +1,43 @@
+# Configuration of cargo-about, which generates the THIRD-PARTY-LICENSES file of the distributions
+# (see dist/about.hbs and write_third_party_licenses in dist/lib.sh).
+
+accepted = [
+  "MIT",
+  "Apache-2.0",
+  "0BSD",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Bitstream-Vera",
+  "BSL-1.0",
+  "ISC",
+  "Ubuntu-font-1.0",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+]
+
+# Tools that are used to build, but not part of the distributed binaries.
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+ignore-transitive-dependencies = false
+
+# egui bundles fonts, of which the application links Hack, Ubuntu Light and the five icons of
+# egui-icons (the Noto Emoji font would need the monochrome_emoji_fonts feature). The notices of
+# these are in the crate's fonts directory; the checksums make this fail when egui updates them.
+[epaint_default_fonts.clarify]
+license = "MIT AND Ubuntu-font-1.0 AND Bitstream-Vera"
+
+[[epaint_default_fonts.clarify.files]]
+path = "fonts/Hack-Regular.txt"
+checksum = "47c0cccbeec7e8614548cc485588b28149e7874188df5f41b36efebcee285c87"
+license = "Bitstream-Vera"
+
+[[epaint_default_fonts.clarify.files]]
+path = "fonts/UFL.txt"
+checksum = "2f0015108d68627bd788d313f529c21ff4da2c2c42a5e1f3883acc83480f9002"
+license = "Ubuntu-font-1.0"
+
+[[epaint_default_fonts.clarify.files]]
+path = "fonts/emoji-icon-font-mit-license.txt"
+checksum = "b9d2c1d909aa149996fd4c91dcb92b2362a04431640c1d200959da94caf8cde1"
+license = "MIT"

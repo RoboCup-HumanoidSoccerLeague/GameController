@@ -67,6 +67,36 @@ install_built() { # <file name in the target directory> <destination>
   fi
 }
 
+# Writes the licenses of the third-party code that is linked into the binaries of a cargo package
+# (the notices that the licenses require to accompany binary distributions) to <output file>. The
+# configuration is about.toml and the template is dist/about.hbs.
+write_third_party_licenses() { # <package> <output file>
+  if ! command -v cargo-about >/dev/null; then
+    >&2 echo "error: cargo-about is required (cargo install --locked cargo-about --features cli)"
+    return 1
+  fi
+  local targets=(--target "${target}")
+  if ${universal}; then
+    targets=(--target aarch64-apple-darwin --target x86_64-apple-darwin)
+  fi
+  local temporary="${2}.tmp"
+  (cd "${basedir}" && cargo about generate --locked --config about.toml \
+    --manifest-path "${1}/Cargo.toml" "${targets[@]}" "${distdir}/about.hbs") >"${temporary}"
+  mv "${temporary}" "${2}"
+}
+
+# Appends the notice of the Inter font, which is not a crate, to a file made by
+# write_third_party_licenses.
+append_font_license() { # <file>
+  {
+    printf '\n%s\n%s\n%s\n\n' \
+      "--------------------------------------------------------------------------------" \
+      "Inter (a subset of the fonts is embedded in the application)" \
+      "--------------------------------------------------------------------------------"
+    cat "${basedir}/game_controller_app/fonts/OFL.txt"
+  } >>"${1}"
+}
+
 # Creates <directory>.tar.bz2 from a directory.
 make_tarball() {
   tar -cjf "${1}.tar.bz2" -C "$(dirname "${1}")" "$(basename "${1}")"

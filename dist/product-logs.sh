@@ -5,6 +5,7 @@ stage_logs() {
   rm -rf "${logs_dir}"
   mkdir -p "${logs_dir}"
   cp "${basedir}/LICENSE" "${logs_dir}"
+  write_third_party_licenses game_controller_logs "${logs_dir}/THIRD-PARTY-LICENSES"
   install_built game_controller_logs "${logs_dir}/game_controller_logs"
 }
 

@@ -38,6 +38,33 @@ function Get-BuildDirectory {
     Join-Path $BaseDirectory "target\$Target\$BuildProfile"
 }
 
+# Writes the licenses of the third-party code that is linked into the binaries of a cargo package
+# (the notices that the licenses require to accompany binary distributions) to a file. The
+# configuration is about.toml and the template is dist/about.hbs.
+function Write-ThirdPartyLicenses($Package, $OutputFile) {
+    if (-not (Get-Command cargo-about -ErrorAction SilentlyContinue)) {
+        throw "cargo-about is required (cargo install --locked cargo-about --features cli)"
+    }
+    Push-Location $BaseDirectory
+    try {
+        $Text = cargo about generate --locked --config about.toml --manifest-path "$Package/Cargo.toml" --target $Target $(Join-Path $DistDirectory "about.hbs")
+        if ($LASTEXITCODE -ne 0) {
+            throw "cargo about failed"
+        }
+    } finally {
+        Pop-Location
+    }
+    Set-Content -Path $OutputFile -Value $Text -Encoding utf8
+}
+
+# Appends the notice of the Inter font, which is not a crate, to a file made by
+# Write-ThirdPartyLicenses.
+function Add-FontLicense($File) {
+    $Line = "-" * 80
+    Add-Content -Path $File -Encoding utf8 -Value @("", $Line, "Inter (a subset of the fonts is embedded in the application)", $Line, "")
+    Add-Content -Path $File -Encoding utf8 -Value (Get-Content $(Join-Path $BaseDirectory "game_controller_app\fonts\OFL.txt"))
+}
+
 # Creates <directory>.zip from a directory.
 function New-ZipArchive($Directory) {
     Compress-Archive $Directory "$Directory.zip" -Force
@@ -60,6 +87,7 @@ function Stage-Api {
 
     $BuildDirectory = Get-BuildDirectory
     Copy-Item $(Join-Path $BaseDirectory "LICENSE") $ApiDirectory
+    Write-ThirdPartyLicenses "game_controller_api" $(Join-Path $ApiDirectory "THIRD-PARTY-LICENSES")
     Copy-Item $(Join-Path $BaseDirectory "game_controller_api\headers\GameController.h") $IncludeDirectory
     Copy-Item $(Join-Path $BaseDirectory "game_controller_msgs\headers\RoboCupGameControlData.h") $IncludeDirectory
     Copy-Item $(Join-Path $BuildDirectory "game_controller_api.dll") $LibraryDirectory
@@ -80,6 +108,7 @@ function Stage-Logs {
     $script:LogsDirectory = Join-Path $DistDirectory "game_controller_logs-$Version-$Target"
     Reset-Directory $LogsDirectory
     Copy-Item $(Join-Path $BaseDirectory "LICENSE") $LogsDirectory
+    Write-ThirdPartyLicenses "game_controller_logs" $(Join-Path $LogsDirectory "THIRD-PARTY-LICENSES")
     Copy-Item $(Join-Path (Get-BuildDirectory) "game_controller_logs.exe") $LogsDirectory
 }
 
@@ -93,6 +122,9 @@ function Stage-App {
     Reset-Directory $AppDirectory
     Copy-Item $(Join-Path $BaseDirectory "LICENSE") $AppDirectory
     Copy-Item $(Join-Path $BaseDirectory "README.md") $AppDirectory
+    $ThirdPartyLicenses = Join-Path $AppDirectory "THIRD-PARTY-LICENSES"
+    Write-ThirdPartyLicenses "game_controller_app" $ThirdPartyLicenses
+    Add-FontLicense $ThirdPartyLicenses
     Copy-Item $(Join-Path $BaseDirectory "config") $AppDirectory -Recurse
     Copy-Item $(Join-Path (Get-BuildDirectory) "game_controller_app.exe") $(Join-Path $AppDirectory "GameController.exe")
     Set-Content -NoNewline -Path $(Join-Path $AppDirectory "version.txt") -Value $Version

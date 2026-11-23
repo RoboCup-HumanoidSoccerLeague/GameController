@@ -11,7 +11,7 @@
 //! 4. the directory of a source checkout or of the legacy archive layout, `<exe>/../../config`.
 
 use std::{
-    env::var_os,
+    env::{current_exe, var_os},
     fmt::{self, Display, Formatter},
     fs::{copy, create_dir_all, read_dir, read_to_string, write},
     path::{Path, PathBuf},
@@ -78,6 +78,13 @@ impl Display for ResolvedConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.directory.display(), self.origin)
     }
+}
+
+/// This function returns the real path of the executable, which is the base for finding the
+/// installed configuration (symbolic links must not confuse the search).
+pub fn executable_path() -> Result<PathBuf> {
+    let exe = current_exe().context("could not determine the path of the executable")?;
+    Ok(exe.canonicalize().unwrap_or(exe))
 }
 
 /// This function returns the value of an environment variable as a path if it is not empty.

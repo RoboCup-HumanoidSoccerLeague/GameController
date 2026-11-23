@@ -2,7 +2,6 @@
 //! operated once the runtime has been started.
 
 use std::{
-    env::current_exe,
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -10,7 +9,7 @@ use std::{
     },
 };
 
-use anyhow::{Context, Error, Result};
+use anyhow::{Context, Error};
 use eframe::egui::{self, Rect, Vec2, ViewportCommand};
 
 use game_controller_core::types::Side;
@@ -18,7 +17,8 @@ use game_controller_runtime::{
     cli::Args,
     launch::{make_launch_data, LaunchData, LaunchSettings},
     paths::{
-        resolve_config_directory, stale_config_warning, user_config_directory, user_log_directory,
+        executable_path, resolve_config_directory, stale_config_warning, user_config_directory,
+        user_log_directory,
     },
     shutdown_runtime, start_runtime, RuntimeState, UiState,
 };
@@ -43,13 +43,6 @@ const MAX_MONITOR_FRACTION: f32 = 0.85;
 
 /// The size of the launcher window.
 pub const LAUNCHER_SIZE: Vec2 = Vec2::new(700.0, 560.0);
-
-/// This function returns the real path of the executable, which is the base for finding the
-/// installed configuration (symbolic links must not confuse the search).
-pub fn executable_path() -> Result<PathBuf> {
-    let exe = current_exe().context("could not determine the path of the executable")?;
-    Ok(exe.canonicalize().unwrap_or(exe))
-}
 
 /// The running game: the runtime services and the latest state they sent.
 struct Running {

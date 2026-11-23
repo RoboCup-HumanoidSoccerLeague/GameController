@@ -18,14 +18,14 @@ use anyhow::Context;
 use eframe::egui;
 
 use game_controller_app::{
-    app::{executable_path, App, LAUNCHER_SIZE},
+    app::{App, LAUNCHER_SIZE},
     style,
 };
 use game_controller_runtime::{
     cli::{parse_args, Args},
     paths::{
-        config_candidates, default_args_file, install_user_config, user_config_directory,
-        user_directory, user_log_directory,
+        config_candidates, default_args_file, executable_path, install_user_config,
+        user_config_directory, user_directory, user_log_directory,
     },
 };
 

@@ -50,6 +50,7 @@ pub const NUM_PLAYERS: usize = (PlayerNumber::MAX - PlayerNumber::MIN + 1) as us
 bitflags! {
     /// This struct represents the features that the automatic referee should provide.
     #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[repr(C)]
     pub struct Features: u32 {
         // State transitions.
         /// Switch to Set early if players didn't move sufficiently long.
@@ -109,7 +110,8 @@ bitflags! {
 }
 
 /// This struct describes the dimensions of the field. The letters refer to the rule book.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
 pub struct FieldDimensions {
     /// The length of the field (A).
     pub length: f32,

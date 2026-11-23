@@ -27,13 +27,21 @@ fn main() {
     config.structure.rename_fields = cbindgen::RenameRule::CamelCase;
     config.enumeration.rename_variants = cbindgen::RenameRule::CamelCase;
     config.macro_expansion.bitflags = true;
+    // The types of the automatic referee are used directly, but keep the prefix that marks them as
+    // belonging to it.
+    for name in ["Features", "FieldDimensions"] {
+        config
+            .export
+            .rename
+            .insert(name.to_string(), format!("Autoreferee{name}"));
+    }
 
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
         .with_namespace("RoboCup")
         .with_parse_deps(true)
-        .with_parse_include(&["game_controller_core"])
+        .with_parse_include(&["game_controller_core", "game_controller_autoreferee"])
         .generate()
         .expect("unable to generate bindings")
         .write_to_file("headers/GameController.h");

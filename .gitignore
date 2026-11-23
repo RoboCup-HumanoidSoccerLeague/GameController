@@ -2,6 +2,7 @@
 /game_controller_api/headers
 /game_controller_py/target
 /dist/*.dmg
+/dist/*.p12
 /dist/*.tar.bz2
 /dist/*.zip
 /dist/.venv-dmgbuild

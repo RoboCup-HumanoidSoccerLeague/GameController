@@ -10,7 +10,7 @@ license = "MIT"
 name = "game_controller_py"
 repository = "https://github.com/RoboCup-HumanoidSoccerLeague/GameController"
 rust-version = "1.83"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 
 [dependencies]
 bytes = { version = "1.0" }

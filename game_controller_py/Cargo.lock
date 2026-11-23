@@ -258,7 +258,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_autoreferee"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "bitflags",
  "enum-map",
@@ -267,7 +267,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_core"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "enum-map",
  "serde",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_msgs"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_py"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "bytes",
  "enum-map",

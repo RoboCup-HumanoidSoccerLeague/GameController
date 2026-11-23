@@ -1485,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_api"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "bitflags 2.13.2",
  "bytes",
@@ -1499,7 +1499,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_app"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "eframe",
@@ -1512,7 +1512,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_autoreferee"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "bitflags 2.13.2",
  "enum-map",
@@ -1521,7 +1521,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_core"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "enum-map",
  "serde",
@@ -1532,7 +1532,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_logs"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_msgs"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -1555,7 +1555,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_net"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1567,7 +1567,7 @@ dependencies = [
 
 [[package]]
 name = "game_controller_runtime"
-version = "7.0.0"
+version = "7.1.0-rc.1"
 dependencies = [
  "anyhow",
  "clap",

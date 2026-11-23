@@ -7,9 +7,10 @@
 //! # Usage
 //!
 //! Create the parameters of the competition with [gc_competition_params_new] (once, they can be
-//! reused), the parameters of a game with [gc_params_new] and a GameController with [gc_new]. In each simulation
-//! step, advance the time with [gc_seek], optionally run [autoreferee::gc_autoreferee_update], and
-//! obtain the state in the format of a control message with [gc_read].
+//! reused), the parameters of a game with [gc_params_new] and a GameController with [gc_new]. In
+//! each simulation step, advance the time with [gc_seek], optionally run
+//! [autoreferee::gc_autoreferee_update], and obtain the state in the format of a control message
+//! with [gc_control_message].
 //!
 //! Actions are created by the `gc_action_*` functions. [gc_apply] takes ownership of an action
 //! (so `gc_apply(gc, gc_action_goal(side), source)` does not leak), while [gc_is_legal] does not.
@@ -448,7 +449,7 @@ pub extern "C" fn gc_action_wait_for_set_play() -> *mut VAction {
 ///
 /// `data` must be `NULL` or point to `len` writable bytes.
 #[no_mangle]
-pub unsafe extern "C" fn gc_read(
+pub unsafe extern "C" fn gc_control_message(
     game_controller: Option<&mut GameController>,
     packet_number: u8,
     true_data: bool,

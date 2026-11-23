@@ -1,9 +1,9 @@
 //! This module exposes the automatic referee from [game_controller_autoreferee] to C.
 //!
 //! In each simulation step, the caller should call [crate::gc_seek], then
-//! [gc_autoreferee_update], and then [crate::gc_read]. [gc_autoreferee_ball_contact] should be
-//! called whenever a player touches the ball. See [game_controller_autoreferee] for the coordinate
-//! system (lengths are in meters, angles in radians).
+//! [gc_autoreferee_update], and then [crate::gc_control_message]. [gc_autoreferee_ball_contact]
+//! should be called whenever a player touches the ball. See [game_controller_autoreferee] for the
+//! coordinate system (lengths are in meters, angles in radians).
 
 use std::{ffi::c_void, ptr::null_mut, time::Duration};
 

@@ -47,14 +47,14 @@ function Write-ThirdPartyLicenses($Package, $OutputFile) {
     }
     Push-Location $BaseDirectory
     try {
-        $Text = cargo about generate --locked --config about.toml --manifest-path "$Package/Cargo.toml" --target $Target $(Join-Path $DistDirectory "about.hbs")
+        # The output is not redirected because that would use the wrong encoding in PowerShell.
+        cargo about generate --locked --config about.toml --manifest-path "$Package/Cargo.toml" --target $Target --output-file $OutputFile $(Join-Path $DistDirectory "about.hbs")
         if ($LASTEXITCODE -ne 0) {
             throw "cargo about failed"
         }
     } finally {
         Pop-Location
     }
-    Set-Content -Path $OutputFile -Value $Text -Encoding utf8
 }
 
 # Appends the notice of the Inter font, which is not a crate, to a file made by
@@ -62,7 +62,7 @@ function Write-ThirdPartyLicenses($Package, $OutputFile) {
 function Add-FontLicense($File) {
     $Line = "-" * 80
     Add-Content -Path $File -Encoding utf8 -Value @("", $Line, "Inter (a subset of the fonts is embedded in the application)", $Line, "")
-    Add-Content -Path $File -Encoding utf8 -Value (Get-Content $(Join-Path $BaseDirectory "game_controller_app\fonts\OFL.txt"))
+    Add-Content -Path $File -Encoding utf8 -Value (Get-Content -Encoding utf8 $(Join-Path $BaseDirectory "game_controller_app\fonts\OFL.txt"))
 }
 
 # Creates <directory>.zip from a directory.

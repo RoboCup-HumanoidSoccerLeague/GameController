@@ -271,6 +271,14 @@ impl Autoreferee {
         Ok(())
     }
 
+    /// Whether the automatic referee has requested the placement for the walk-in of the current
+    /// state and not all placements have been made yet (i.e. `Command.WalkInComplete` is still to
+    /// come).
+    #[getter]
+    fn walk_in_placement_pending(&self) -> bool {
+        self.0.walk_in_placement_pending()
+    }
+
     /// This method runs the automatic referee for one step and returns the commands that the
     /// simulator should execute.
     ///

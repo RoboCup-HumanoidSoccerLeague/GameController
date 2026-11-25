@@ -162,6 +162,17 @@ pub extern "C" fn gc_autoreferee_set_features(
     true
 }
 
+/// This function returns whether the automatic referee has requested the placement for the walk-in
+/// of the current state and not all placements have been made yet (i.e. the `walk_in_complete`
+/// callback is still to come). Returns `false` if the argument is `NULL`.
+#[no_mangle]
+pub extern "C" fn gc_autoreferee_walk_in_placement_pending(
+    autoreferee: Option<&Autoreferee>,
+) -> bool {
+    non_null(autoreferee, "autoreferee")
+        .is_some_and(|autoreferee| autoreferee.autoreferee.walk_in_placement_pending())
+}
+
 /// This function runs the automatic referee for one step.
 ///
 /// It may apply actions to the GameController. The callbacks from the configuration are called

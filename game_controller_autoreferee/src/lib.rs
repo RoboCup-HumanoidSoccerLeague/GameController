@@ -583,6 +583,13 @@ impl Autoreferee {
         self.last_gc_time = Some(now);
     }
 
+    /// This function returns whether the placement for the walk-in of the current state has been
+    /// requested and not all of them have been commanded yet (i.e. [Command::WalkInComplete] is
+    /// still to come).
+    pub fn walk_in_placement_pending(&self) -> bool {
+        self.walk_in_requested
+    }
+
     /// This function returns the enabled features.
     pub fn features(&self) -> Features {
         self.config.features

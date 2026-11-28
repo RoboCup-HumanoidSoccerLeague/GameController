@@ -17,6 +17,10 @@ game_controller_core = { workspace = true }
 game_controller_runtime = { workspace = true }
 tokio = { workspace = true }
 
+[dev-dependencies]
+egui_kittest = { version = "0.37", features = ["wgpu", "snapshot"] }
+serde_yaml = { workspace = true }
+
 # The icon of the executable on Windows (shown by the Explorer, shortcuts and the list of installed
 # apps) is a resource that the build script embeds.
 [target.'cfg(windows)'.build-dependencies]

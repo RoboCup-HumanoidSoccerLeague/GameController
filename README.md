@@ -38,6 +38,14 @@ The user interface can be driven by tools such as AI agents through [`egui_inspe
 EGUI_INSPECTION=1 cargo run --features eframe/inspection
 ```
 
+UI tests are based on [egui_kittest](https://docs.rs/egui_kittest/latest/egui_kittest/).
+If you add or update a UI test, you can update the snapshot image by running the tests by
+setting the `UPDATE_SNAPSHOTS` variable.
+
+```bash
+UPDATE_SNAPSHOTS=1 cargo test
+```
+
 ### Creating Binary Distributions
 
 For Linux, macOS and Windows, there are scripts in the directory `dist/` to create binary distributions.

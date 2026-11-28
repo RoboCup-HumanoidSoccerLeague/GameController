@@ -530,7 +530,10 @@ impl MainView {
         let size = vec2(
             (ui.available_width() - GAP * (COLUMNS as f32 - 1.0)) / COLUMNS as f32,
             (ui.available_height() - GAP * (rows - 1.0)) / rows,
-        );
+        )
+        // The formula above can produce negative values if there is no available space left
+        .max(Vec2::new(0.0, 0.0));
+
         for (row, calls) in PENALTIES.chunks(COLUMNS).enumerate() {
             ui.horizontal(|ui| {
                 for (column, (label, _)) in calls.iter().enumerate() {
@@ -1081,3 +1084,6 @@ fn undo_panel(ui: &mut Ui, cx: &mut Ctx, undo_actions: &[VAction]) {
         }
     });
 }
+
+#[cfg(test)]
+mod tests;

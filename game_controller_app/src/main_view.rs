@@ -103,6 +103,12 @@ fn team_width(available: f32) -> f32 {
     (TEAM_WIDTH + spare / 4.0).min(MAX_TEAM_WIDTH)
 }
 
+/// The size of one of `count` equal rows or columns.
+fn cell_extent(available: f32, count: usize) -> f32 {
+    let count = count as f32;
+    (available - GAP * (count - 1.0)).max(0.0) / count
+}
+
 /// This function formats a timer as `[-]MM:SS` (rounding up).
 pub fn format_mmss(timer: &Timer) -> String {
     let seconds = match timer {
@@ -268,7 +274,7 @@ fn centered_text(ui: &Ui, text: &str, wrap_width: f32) -> WidgetText {
         ui.text_valign(),
     ));
     job.halign = Align::Center;
-    job.wrap.max_width = wrap_width;
+    job.wrap.max_width = wrap_width.max(0.0);
     let mut galley = Arc::unwrap_or_clone(ui.fonts_mut(|fonts| fonts.layout_job(job)));
     let offset = vec2(-galley.rect.left(), 0.0);
     for row in &mut galley.rows {
@@ -509,8 +515,8 @@ impl MainView {
             used += item.0;
             rows.last_mut().unwrap().push(item);
         }
-        let column_width = (ui.available_width() - GAP * (COLUMNS as f32 - 1.0)) / COLUMNS as f32;
-        let row_height = (STATE_HEIGHT - GAP * (rows.len() as f32 - 1.0)) / rows.len() as f32;
+        let column_width = cell_extent(ui.available_width(), COLUMNS);
+        let row_height = cell_extent(STATE_HEIGHT, rows.len());
         for row in rows {
             ui.horizontal(|ui| {
                 for (span, label, action, selected) in row {
@@ -526,10 +532,10 @@ impl MainView {
 
     fn penalty_panel(&mut self, ui: &mut Ui, cx: &mut Ctx) {
         const COLUMNS: usize = 2;
-        let rows = PENALTIES.len().div_ceil(COLUMNS) as f32;
+        let rows = PENALTIES.len().div_ceil(COLUMNS);
         let size = vec2(
-            (ui.available_width() - GAP * (COLUMNS as f32 - 1.0)) / COLUMNS as f32,
-            (ui.available_height() - GAP * (rows - 1.0)) / rows,
+            cell_extent(ui.available_width(), COLUMNS),
+            cell_extent(ui.available_height(), rows),
         );
         for (row, calls) in PENALTIES.chunks(COLUMNS).enumerate() {
             ui.horizontal(|ui| {

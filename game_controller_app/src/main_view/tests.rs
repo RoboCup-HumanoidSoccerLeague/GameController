@@ -11,6 +11,7 @@ use crate::{
 use super::*;
 
 #[test]
+/// Tests the rendering of the initial game view with two dummy teams.
 fn initial_game_view() {
     let params = create_test_params();
     let game_controller = GameController::new(params.clone(), Box::new(NullLogger));

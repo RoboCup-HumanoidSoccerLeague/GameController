@@ -3,6 +3,8 @@ use game_controller_core::types::{
     Color, GameParams, Params, Side, SideMapping, TeamParams, TestParams,
 };
 
+/// Create params that could be set by the launcher for use in tests.
+/// This creates "Middle - Advanced" competition parameters.
 pub(crate) fn create_test_params() -> Params {
     let home = TeamParams {
         number: 0,

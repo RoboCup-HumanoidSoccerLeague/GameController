@@ -31,7 +31,7 @@ use crate::{
 };
 
 /// The size at which the main window opens (if the monitor is large enough).
-const MAIN_WINDOW_SIZE: Vec2 = Vec2::new(1040.0, 848.0);
+pub(crate) const MAIN_WINDOW_SIZE: Vec2 = Vec2::new(1040.0, 848.0);
 
 /// The minimum size of the main window. It is as narrow as the labels of the buttons allow, and
 /// as low as five player buttons fit without scrolling, so that it also fits on small screens.

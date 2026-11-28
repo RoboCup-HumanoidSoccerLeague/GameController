@@ -8,3 +8,6 @@ pub mod app;
 pub mod launcher;
 pub mod main_view;
 pub mod style;
+
+#[cfg(test)]
+mod tests;

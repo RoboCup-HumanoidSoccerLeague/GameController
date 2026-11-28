@@ -123,10 +123,16 @@ pub fn font(size: f32, weight: Weight) -> FontId {
 pub fn setup(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let weights: [(Weight, &'static [u8]); 4] = [
-        (Weight::Regular, include_bytes!("../fonts/Inter-400.ttf")),
-        (Weight::Medium, include_bytes!("../fonts/Inter-500.ttf")),
-        (Weight::SemiBold, include_bytes!("../fonts/Inter-600.ttf")),
-        (Weight::Bold, include_bytes!("../fonts/Inter-700.ttf")),
+        (
+            Weight::Regular,
+            include_bytes!("../fonts/Inter-Regular.ttf"),
+        ),
+        (Weight::Medium, include_bytes!("../fonts/Inter-Medium.ttf")),
+        (
+            Weight::SemiBold,
+            include_bytes!("../fonts/Inter-SemiBold.ttf"),
+        ),
+        (Weight::Bold, include_bytes!("../fonts/Inter-Bold.ttf")),
     ];
     // The default fonts stay as fallbacks (e.g. for symbols that Inter doesn't have).
     let fallbacks = fonts.families[&FontFamily::Proportional].clone();
